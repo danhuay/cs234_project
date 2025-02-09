@@ -1,0 +1,140 @@
+%%%%%%%% ICML 2018 EXAMPLE LATEX SUBMISSION FILE %%%%%%%%%%%%%%%%%
+
+\documentclass{article}
+
+% Recommended, but optional, packages for figures and better typesetting:
+\usepackage{microtype}
+\usepackage{graphicx}
+\usepackage{subfigure}
+\usepackage{booktabs} % for professional tables
+
+% hyperref makes hyperlinks in the resulting PDF.
+% If your build breaks (sometimes temporarily if a hyperlink spans a page)
+% please comment out the following usepackage line and replace
+% \usepackage{icml2018} with \usepackage[nohyperref]{icml2018} above.
+\usepackage{hyperref}
+
+% Attempt to make hyperref and algorithmic work together better:
+\newcommand{\theHalgorithm}{\arabic{algorithm}}
+
+% Use the following line for the initial blind version submitted for review:
+\usepackage[accepted]{icml2018}
+
+% If accepted, instead use the following line for the camera-ready submission:
+%\usepackage[accepted]{icml2018}
+
+% The \icmltitle you define below is probably too long as a header.
+% Therefore, a short form for the running title is supplied here:
+\icmltitlerunning{CS234: Reinforcement Learning Winter 2025 - Final Project Proposal}
+
+\begin{document}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%          HEADER SECTIONS HERE            %%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+\twocolumn[
+\icmltitle{Project Proposal: Hybrid Imitation and \\
+           Reinforcement Learning
+           for Efficient Game Control
+           }
+
+\begin{icmlauthorlist}
+\icmlauthor{Danhua Yan}{to}
+\end{icmlauthorlist}
+
+\icmlaffiliation{to}{Department of Computer Science, Stanford University}
+\icmlcorrespondingauthor{Danhua Yan}{dhyan@stanford.edu}
+
+% You may provide any keywords that you
+% find helpful for describing your paper; these are used to populate
+% the "keywords" metadata in the PDF but will not be shown in the document
+% \icmlkeywords{Machine Learning, ICML}
+
+\vskip 0.3in
+]
+
+% this must go after the closing bracket ] following \twocolumn[ ...
+
+% This command actually creates the footnote in the first column
+% listing the affiliations and the copyright notice.
+% The command takes one argument, which is text to display at the start of the footnote.
+% The \icmlEqualContribution command is standard text for equal contribution.
+% Remove it (just {}) if you do not need this facility.
+
+%\printAffiliationsAndNotice{}  % leave blank if no need to mention equal contribution
+% \printAffiliationsAndNotice{\icmlEqualContribution} % otherwise use the standard text.
+\printAffiliationsAndNotice{} % otherwise use the standard text.
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%           MAIN SECTIONS HERE             %%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+% \begin{abstract}
+% This document provides a basic paper template and submission guidelines.
+% Abstracts must be a single paragraph, ideally between 4--6 sentences long.
+% Gross violations will trigger corrections at the camera-ready phase.
+% \end{abstract}
+
+\section{Background and Related Work}
+
+% What is the problem that you will be investigating ? Why is it interesting ?
+% What literature have you already surveyed or will be 
+% examining to provide context and background ?
+
+\section{Data}
+% If relevant, what data, simulator or real world RL domain will you be looking at ? 
+% If you are collecting new datasets, how do you plan to collect them ?
+
+\section{Methods}
+% What method, algorithm or theoretical analysis are you proposing ? 
+% If there are existing implementations, will you use them and how ? 
+% How do you plan to improve or modify such implementations ? 
+% If you are addressing a theoretical question, how do you plan to make progress ?
+
+\section{Evaluations}
+% How will you evaluate your results ? 
+% Qualitatively, what kind of results do you expect (e.g. plots or figures) ? 
+% Quantitatively, what kind of analysis will you use to evaluate and/or 
+% compare your results (e.g. what performance metrics or statistical tests) ?
+
+
+
+
+% % Acknowledgements should only appear in the accepted version.
+% \section*{Acknowledgements}
+
+% \textbf{Do not} include acknowledgements in the initial version of
+% the paper submitted for blind review.
+
+% If a paper is accepted, the final camera-ready version can (and
+% probably should) include acknowledgements. In this case, please
+% place such acknowledgements in an unnumbered section at the
+% end of the paper. Typically, this will include thanks to reviewers
+% who gave useful comments, to colleagues who contributed to the ideas,
+% and to funding agencies and corporate sponsors that provided financial
+% support.
+
+
+\bibliography{ref}
+\bibliographystyle{icml2018}
+
+
+\end{document}
+
+
+% This document was modified from the file originally made available by
+% Pat Langley and Andrea Danyluk for ICML-2K. This version was created
+% by Iain Murray in 2018. It was modified from a version from Dan Roy in
+% 2017, which was based on a version from Lise Getoor and Tobias
+% Scheffer, which was slightly modified from the 2010 version by
+% Thorsten Joachims & Johannes Fuernkranz, slightly modified from the
+% 2009 version by Kiri Wagstaff and Sam Roweis's 2008 version, which is
+% slightly modified from Prasad Tadepalli's 2007 version which is a
+% lightly changed version of the previous year's version by Andrew
+% Moore, which was in turn edited from those of Kristian Kersting and
+% Codrina Lauth. Alex Smola contributed to the algorithmic style files.
