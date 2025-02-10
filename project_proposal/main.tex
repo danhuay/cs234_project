@@ -35,10 +35,9 @@
 
 
 \twocolumn[
-\icmltitle{Project Proposal: Hybrid Imitation and \\
-           Reinforcement Learning
-           for Efficient Game Control
-           }
+\icmltitle{Enhancing Game Control Through \\
+Hybrid Reinforcement Learning
+}
 
 \begin{icmlauthorlist}
 \icmlauthor{Danhua Yan}{to}
@@ -86,23 +85,77 @@
 % What literature have you already surveyed or will be 
 % examining to provide context and background ?
 
+Training Reinforcement Learning (RL) agents solely from exploration is usually 
+data inefficient and likely converges to sub-optimal policies. 
+The research field of bootstraping an RL agent's policy from demonstrations or 
+imitation learning shows significant promise. 
+Various hybrid paradigms that combine human guidance as offline RL and agent 
+exploration as online RL have shown they can accelerate policy learning and 
+achieve above-demonstration performance.
+\cite{hester_dqfd_2017,nair_bcrl_overcoming_2018, song_hybrid_2023, ren_hybrid_2024, 
+Coletti2023EffectivenessOW}.
+
+This project investigates how hybrid RL can effectively enhance game control 
+through guided explorations of the agent. It aims to evaluate the potential 
+for achieving performance that surpasses the demonstration level.
+
+
 \section{Data}
 % If relevant, what data, simulator or real world RL domain will you be looking at ? 
 % If you are collecting new datasets, how do you plan to collect them ?
+This project will leverage the \texttt{gym-super-mario-bros} library to create 
+an OpenAI Gym environment for training an agent to play the NES game Super Mario Bros. The states are represented 
+by in-game visual frames, the actions are discrete game controls, and the 
+rewards are the game's scoring systems. Human demonstrations will be recorded 
+into offline trajectories, and the agent will perform online exploration in 
+the environment.
+
 
 \section{Methods}
 % What method, algorithm or theoretical analysis are you proposing ? 
 % If there are existing implementations, will you use them and how ? 
 % How do you plan to improve or modify such implementations ? 
 % If you are addressing a theoretical question, how do you plan to make progress ?
+The methodology involves assessing RL agent performance on baseline and hybrid 
+approaches on the trained game level and an unseen similar level to compare 
+generalization capabilities.
+
+\begin{itemize}
+    \item Baselines: Offline-only and online-only approaches are used for 
+          comparisons:
+        \begin{itemize}
+            \item Imitation Learning Only: Train a policy via behavioral 
+                  cloning (BC) using human demonstrations.
+            \item Online-only RL: Train an agent with online exploration only, 
+                  leveraging Deep \textit{Q}-Learning (DQN) with $\epsilon$-greedy 
+                  explorations.
+        \end{itemize}
+    \item Hybrid RL: We propose two paradigms of hybrid approaches:
+          \begin{itemize}
+            \item Following the DQfD (Deep \textit{Q}-Learning from 
+                  Demonstrations) framework by \cite{hester_dqfd_2017}, which 
+                  incorporates expert demonstrations into the replay buffer of 
+                  DQN to control explorations.
+            \item Leveraging behavioral cloning (BC) as a warm-start, then 
+                  further leveraging PPO (Proximal Policy Optimization) for 
+                  policy fine-tuning. This approach is inspired by 
+                  \cite{Coletti2023EffectivenessOW}.
+          \end{itemize}
+\end{itemize}
 
 \section{Evaluations}
 % How will you evaluate your results ? 
 % Qualitatively, what kind of results do you expect (e.g. plots or figures) ? 
 % Quantitatively, what kind of analysis will you use to evaluate and/or 
 % compare your results (e.g. what performance metrics or statistical tests) ?
-
-
+We will evaluate the approaches using both quantitative and qualitative metrics. 
+Quantitatively, performance will be measured via cumulative reward, level 
+completion rate, and distance traversed per episode, plotted as learning curves 
+against training episodes or timesteps. Multiple independent runs will ensure 
+statistical significance. Sample efficiency will be analyzed by measuring 
+interactions required to reach performance thresholds and wall-clock training 
+time. Qualitatively, gameplay visualizations and trajectory overlays will 
+provide insights into behavioral strategies.
 
 
 % % Acknowledgements should only appear in the accepted version.
