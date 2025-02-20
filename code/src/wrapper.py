@@ -1,6 +1,12 @@
+from typing import SupportsFloat, Any
+
 import gymnasium as gym
-from gymnasium.core import ActionWrapper, Env
+from gymnasium.core import ActionWrapper, Env, WrapperActType, WrapperObsType
+from src.utils import get_x_pos
 import numpy as np
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class JoypadSpace(ActionWrapper):
@@ -72,3 +78,70 @@ class JoypadSpace(ActionWrapper):
 
         """
         return self.bitmap_to_array(self._action_map[action])
+
+
+class CustomTerminationEnv(gym.Wrapper):
+    LOSE_PENALTY = -1000
+
+    def __init__(self, env, max_no_movement_time=10):
+        super().__init__(env)
+        self.max_no_movement_time = max_no_movement_time  # seconds
+        self.fps = 60  # Assuming 60 FPS for SMB
+        self.max_no_movement_frames = self.max_no_movement_time * self.fps
+        self.prev_x_pos = None
+        self.no_movement_frames = 0
+
+    def reset(self, **kwargs):
+        obs, info = self.env.reset(**kwargs)
+        self.prev_x_pos = None
+        self.no_movement_frames = 0
+        return obs, info
+
+    def step(self, action):
+        obs, reward, terminated, truncated, info = self.env.step(action)
+        x_pos = get_x_pos(info)
+
+        # Check if Mario is moving forward:
+        if self.prev_x_pos is not None and x_pos <= self.prev_x_pos:
+            self.no_movement_frames += 1
+        else:
+            self.no_movement_frames = 0  # Reset counter if Mario moves forward
+
+        self.prev_x_pos = x_pos
+
+        # Terminate if Mario hasn't moved forward for too long
+        if self.no_movement_frames >= self.max_no_movement_frames:
+            logger.info(
+                "Mario has stopped moving forward for too long. Terminating episode."
+            )
+            terminated = True
+            reward = self.LOSE_PENALTY
+
+        # Terminate if Mario loses his only life
+        lives = info.get("lives", 2)  # Adjust default if needed
+        if lives < 1:
+            logger.info("Mario lost his only life. Terminating episode.")
+            terminated = True
+            reward = self.LOSE_PENALTY
+
+        return obs, reward, terminated, truncated, info
+
+
+class CustomRewardEnv(gym.Wrapper):
+    def __init__(self, env):
+        super().__init__(env)
+        self.last_score = 0
+
+    def reset(self, **kwargs):
+        obs, info = self.env.reset(**kwargs)
+        # Initialize the last_score using the score from info (if available)
+        self.last_score = 0
+        return obs, info
+
+    def step(self, action):
+        obs, reward, terminated, truncated, info = self.env.step(action)
+        # reward = score + x_pos
+        score_diff = info.get("score", 0) - self.last_score
+        self.last_score = info.get("score", 0)
+        reward += score_diff
+        return obs, reward, terminated, truncated, info
