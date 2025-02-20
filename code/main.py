@@ -13,14 +13,21 @@ logger = logging.getLogger(__name__)
 logging.basicConfig(format="%(asctime)s - %(message)s", level=logging.INFO)
 
 
-def main():
-    env = retro.make(game="SuperMarioBros-Nes", state="Level1-1")
+def create_game_env(*args, **kwargs):
+    env = retro.make(game="SuperMarioBros-Nes", *args, **kwargs)
     env.reset()
 
-    # Wrap the environment to use our discrete, simple action space
+    # Wrap the environment to use discrete, simple action space
+    # and custom termination and reward functions
     env = wrapper.JoypadSpace(env, actions.SIMPLE_MOVEMENT)
     env = wrapper.CustomTerminationEnv(env)
     env = wrapper.CustomRewardEnv(env)
+
+    return env
+
+
+def main():
+    env = create_game_env(state="Level1-1")
 
     # only use one-life setting
     games_to_play = 10
