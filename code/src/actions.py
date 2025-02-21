@@ -13,6 +13,7 @@ SIMPLE_MOVEMENT = [
     ["RIGHT", "A", "B"],
     ["A"],
     ["LEFT"],
+    ["DOWN"],
 ]
 
 

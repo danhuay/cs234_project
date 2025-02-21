@@ -1,12 +1,15 @@
-from cProfile import label
-
 import retro
 import matplotlib.pyplot as plt
 import numpy as np
+import torch
+import torch.nn as nn
 
 import src.actions as actions
 import src.wrapper as wrapper
 from src.utils import get_x_pos
+from src.policy.dataset import HumanTrajectoriesDataLoader
+from src.policy.bc import BehaviorCloningPolicy
+from src.policy.trainer import ModelTrainer
 import logging
 
 logger = logging.getLogger(__name__)
@@ -54,4 +57,18 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    # main()
+    train_dl, dev_dl = HumanTrajectoriesDataLoader(
+        "human_demon", split=True, train_fraction=0.7, batch_size=32, shuffle=True
+    )
+
+    model = BehaviorCloningPolicy(input_height=224, input_width=240, action_dim=9)
+    trainer = ModelTrainer(
+        model=model,
+        train_dataloader=train_dl,
+        dev_dataloader=dev_dl,
+        optimizer=torch.optim.AdamW(model.parameters(), lr=1e-4),
+        criterion=nn.CrossEntropyLoss(),
+    )
+
+    trainer.train(num_epochs=500, eval_interval=5)
