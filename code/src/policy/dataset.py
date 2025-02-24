@@ -1,7 +1,10 @@
 import torch
 from torch.utils.data import Dataset, DataLoader, random_split
 from ..utils import load_trajectories
+from ..actions import SIMPLE_MOVEMENT
 import logging
+
+from ..wrapper import JoypadSpace
 
 logger = logging.getLogger(__name__)
 
@@ -18,16 +21,26 @@ class HumanTrajectories(Dataset):
             None
         """
         self.states, self.actions, self.info = load_trajectories(traj_folder)
+        self.action_env = JoypadSpace(
+            None, SIMPLE_MOVEMENT
+        )  # dummy space for action wrapper
 
     def __len__(self):
         return len(self.states)
 
+    @staticmethod
+    def transform_state(state):
+        return torch.tensor(state, dtype=torch.float32).permute(2, 0, 1) / 255.0
+
+    def transform_action(self, action):
+        act = self.action_env.get_discrete_action_from_array(action)
+        return torch.tensor(act, dtype=torch.long)
+
     def __getitem__(self, idx):
-        # states are (H, W, C) numpy arrays, need to normalize and convert to tensor
-        state = self.states[idx]
+        # states are (H, W, C) numpy arrays
         # change to (C, H, W) and normalize
-        state = torch.tensor(state, dtype=torch.float32).permute(2, 0, 1) / 255.0
-        action = torch.tensor(self.actions[idx], dtype=torch.float32)
+        state = self.transform_state(self.states[idx])
+        action = self.transform_action(self.actions[idx])
         return state, action
 
 

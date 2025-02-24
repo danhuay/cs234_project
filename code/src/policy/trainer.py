@@ -1,5 +1,6 @@
 import torch
 from torch.utils.tensorboard import SummaryWriter
+import numpy as np
 import os
 import time
 import logging
@@ -17,6 +18,7 @@ class ModelTrainer:
         optimizer,
         device=None,
         checkpoint_dir="checkpoints",
+        checkpoint_name="best_checkpoint.pt",
         experiment_name="experiment",
         log_dir="logs",
     ):
@@ -32,8 +34,12 @@ class ModelTrainer:
         )
         self.model.to(self.device)
         self.checkpoint_dir = checkpoint_dir
+        self.checkpoint_name = checkpoint_name
         self.log_dir = log_dir
         self.writer = SummaryWriter(f"{log_dir}/{experiment_name}")
+        self.early_stopping_patience = (
+            10  # how many eval cycles to wait if no improvement
+        )
 
         # Create checkpoint directory if it doesn't exist
         if not os.path.exists(self.checkpoint_dir):
@@ -41,6 +47,8 @@ class ModelTrainer:
 
     def train(self, num_epochs, eval_interval=1):
         best_accuracy = 0.0
+        early_stopping_counter = 0
+
         for epoch in range(num_epochs):
             self.model.train()
             running_loss = 0.0
@@ -80,6 +88,13 @@ class ModelTrainer:
                     best_accuracy = dev_accuracy
                     self.save_checkpoint(epoch, self.optimizer)
                     logger.info(f"New best model saved at epoch {epoch+1}.")
+                    early_stopping_counter = 0
+                else:
+                    early_stopping_counter += 1
+            # add early stopping condition
+            if early_stopping_counter > self.early_stopping_patience:
+                logger.info("Early stopping activated.")
+                break
 
         self.writer.close()
 
@@ -95,7 +110,7 @@ class ModelTrainer:
                 predictions = self.model.predict(inputs)
                 total += labels.size(0)  # add number of samples in the batch
                 # all correct predictions
-                correct += (predictions == labels).all(dim=1).sum().item()
+                correct += (predictions == labels).sum().item()
 
         accuracy = correct / total
         return accuracy
@@ -106,9 +121,10 @@ class ModelTrainer:
             "model_state_dict": self.model.state_dict(),
             "optimizer_state_dict": optimizer.state_dict(),
         }
-        checkpoint_path = os.path.join(self.checkpoint_dir, f"best_checkpoint.pt")
+        checkpoint_path = os.path.join(self.checkpoint_dir, self.checkpoint_name)
         torch.save(checkpoint, checkpoint_path)
         logger.info(f"Best checkpoint saved to {checkpoint_path}")
+        return
 
     def load_checkpoint(self, checkpoint_path, optimizer=None):
         checkpoint = torch.load(checkpoint_path)
@@ -117,4 +133,12 @@ class ModelTrainer:
             optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
         epoch = checkpoint["epoch"]
         logger.info(f"Checkpoint loaded from {checkpoint_path}, epoch {epoch}")
-        return epoch
+        return
+
+    def sample_action(self, state):
+        state = state.to(self.device)
+        action_t = self.model.predict(state)
+        # flatten the output tensor
+        # convert to numpy array with int type
+        action = int(action_t.squeeze().detach().cpu().numpy())
+        return action

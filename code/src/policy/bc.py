@@ -91,7 +91,6 @@ class BehaviorCloningPolicy(nn.Module):
 
     def predict(self, x):
         with torch.no_grad():
-            y = self(x)
-        y = F.sigmoid(y)
-        pred = (y > 0.5).float()
+            logits = self(x)
+        pred = torch.argmax(logits, dim=1)
         return pred

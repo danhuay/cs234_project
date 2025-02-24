@@ -12,29 +12,20 @@ logger = logging.getLogger(__name__)
 class JoypadSpace(ActionWrapper):
     """An environment wrapper to convert binary to discrete action space."""
 
-    _button_map = {
-        "B": 0b100000000,
-        "NOOP": 0b010000000,
-        "SELECT": 0b001000000,
-        "START": 0b000100000,
-        "UP": 0b000010000,
-        "DOWN": 0b000001000,
-        "LEFT": 0b000000100,
-        "RIGHT": 0b000000010,
-        "A": 0b000000001,
-    }
-
-    @staticmethod
-    def array_to_bitmap(action_array):
-        binary_string = "0b"
-        for b in action_array:
-            binary_string += str(b)
-        return binary_string
-
-    @staticmethod
-    def bitmap_to_array(action_bitmap):
-        binary_string = bin(action_bitmap)[2:]
-        return np.array([int(b) for b in binary_string], dtype=np.int8)
+    _button_to_bitmap = {"NULL": 0b000000000}  # INIT
+    _button_to_bitmap.update(
+        {
+            "B": 0b100000000,
+            "NOOP": 0b010000000,
+            "SELECT": 0b001000000,
+            "START": 0b000100000,
+            "UP": 0b000010000,
+            "DOWN": 0b000001000,
+            "LEFT": 0b000000100,
+            "RIGHT": 0b000000010,
+            "A": 0b000000001,
+        }
+    )
 
     def __init__(self, env: Env, allowed_actions: list):
         """
@@ -52,32 +43,52 @@ class JoypadSpace(ActionWrapper):
         super().__init__(env)
         # create the new action space
         self.action_space = gym.spaces.Discrete(len(allowed_actions))
-        self._action_map = {}  # discrete action number to array of binary actions
-        self._action_meanings = {}  # discrete action number to action meaning
+        # initialize the action maps
+        self._bitmap_to_dsct_action = {}
+        self._dsct_action_to_bitmap = {}
+        # map the allowed actions
+        self.map_allowed_actions(allowed_actions)
 
+    @staticmethod
+    def array_to_bitmap(action_array):
+        """action is list of int and return the bitmap string"""
+        binary_string = "0b"
+        for b in action_array:
+            binary_string += str(b)
+        return int(binary_string, 2)
+
+    @staticmethod
+    def bitmap_to_array(action_bitmap):
+        """convert action_bitmap to numpy int array"""
+        binary_string = f"{action_bitmap:09b}"  # 9 bits
+        return np.array([int(b) for b in binary_string], dtype=np.int8)
+
+    def map_allowed_actions(self, allowed_actions):
         # iterate over all the actions (as button lists)
         for action, button_list in enumerate(allowed_actions):
             # the value of this action's bitmap
             byte_action = 0
             # iterate over the buttons in this button list
             for button in button_list:
-                byte_action |= self._button_map[button]
+                byte_action |= self._button_to_bitmap[button]
+
             # set this action maps value to the byte action value
-            self._action_map[action] = byte_action
-            self._action_meanings[action] = ",".join(button_list)
+            self._dsct_action_to_bitmap[action] = byte_action
+            self._bitmap_to_dsct_action[byte_action] = action
+
+    def get_discrete_action_from_array(self, action_array):
+        """Convert a binary action array to a discrete action."""
+        bitmap = self.array_to_bitmap(action_array)
+        if bitmap in self._bitmap_to_dsct_action:
+            return self._bitmap_to_dsct_action[bitmap]
+        else:
+            # sample a random action if the action is not allowed
+            logger.warning(f"Action {action_array} not allowed. Moving right.")
+            return self._bitmap_to_dsct_action[2]
 
     def action(self, action: int) -> np.ndarray:
-        """
-        Convert a discrete action to a binary action array.
-
-        Args:
-            action: the discrete action to convert
-
-        Returns:
-            the binary action array
-
-        """
-        return self.bitmap_to_array(self._action_map[action])
+        """Convert a discrete action to a binary action array."""
+        return self.bitmap_to_array(self._dsct_action_to_bitmap[action])
 
 
 class CustomTerminationEnv(gym.Wrapper):
@@ -89,6 +100,7 @@ class CustomTerminationEnv(gym.Wrapper):
         self.fps = 60  # Assuming 60 FPS for SMB
         self.max_no_movement_frames = self.max_no_movement_time * self.fps
         self.prev_x_pos = None
+        self.prev_life = None
         self.no_movement_frames = 0
 
     def reset(self, **kwargs):
@@ -118,11 +130,14 @@ class CustomTerminationEnv(gym.Wrapper):
             reward = self.LOSE_PENALTY
 
         # Terminate if Mario loses his only life
-        lives = info.get("lives", 2)  # Adjust default if needed
-        if lives < 1:
-            logger.info("Mario lost his only life. Terminating episode.")
-            terminated = True
-            reward = self.LOSE_PENALTY
+        if self.prev_life is not None:
+            lives = info.get("lives")
+            if lives < self.prev_life:
+                logger.info("Mario lost a life. Terminating episode.")
+                terminated = True
+                reward = self.LOSE_PENALTY
+        else:
+            self.prev_life = info.get("lives")
 
         return obs, reward, terminated, truncated, info
 
