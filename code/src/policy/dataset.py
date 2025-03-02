@@ -4,9 +4,29 @@ from ..utils import load_trajectories
 from ..actions import SIMPLE_MOVEMENT
 import logging
 
-from ..wrapper import JoypadSpace
+from ..wrapper import JoypadSpace, reward_function
 
 logger = logging.getLogger(__name__)
+
+
+class DataTransformer:
+    def __init__(self):
+        self.action_env = JoypadSpace(
+            None, SIMPLE_MOVEMENT
+        )  # dummy space for action wrapper
+
+    @staticmethod
+    def transform_state(state):
+        return torch.tensor(state, dtype=torch.float32).permute(2, 0, 1) / 255.0
+
+    def transform_action(self, action):
+        act = self.action_env.get_discrete_action_from_array(action)
+        return torch.tensor(act, dtype=torch.long)
+
+    @staticmethod
+    def transform_rewards(*args, **kwargs):
+        reward = reward_function(*args, **kwargs)
+        return torch.tensor(reward, dtype=torch.float32)
 
 
 class HumanTrajectories(Dataset):
@@ -21,27 +41,35 @@ class HumanTrajectories(Dataset):
             None
         """
         self.states, self.actions, self.info = load_trajectories(traj_folder)
-        self.action_env = JoypadSpace(
-            None, SIMPLE_MOVEMENT
-        )  # dummy space for action wrapper
+        self.transformer = DataTransformer()
+
+
+class ReplayBufferDataset(Dataset):
+    def __init__(self, replay_buffer):
+        """
+        Initialize a new dataset of replay buffer data.
+
+        Args:
+            replay_buffer: list of (state, action, reward, next_state, done) tuples
+
+        Returns:
+            None
+        """
+        self.replay_buffer = replay_buffer
+        self.transformer = DataTransformer()
 
     def __len__(self):
-        return len(self.states)
-
-    @staticmethod
-    def transform_state(state):
-        return torch.tensor(state, dtype=torch.float32).permute(2, 0, 1) / 255.0
-
-    def transform_action(self, action):
-        act = self.action_env.get_discrete_action_from_array(action)
-        return torch.tensor(act, dtype=torch.long)
+        return len(self.replay_buffer)
 
     def __getitem__(self, idx):
-        # states are (H, W, C) numpy arrays
-        # change to (C, H, W) and normalize
-        state = self.transform_state(self.states[idx])
-        action = self.transform_action(self.actions[idx])
-        return state, action
+        state, action, reward, next_state, done = self.replay_buffer[idx]
+        return (
+            self.transformer.transform_state(state),
+            torch.tensor(action, dtype=torch.long),
+            torch.tensor(reward, dtype=torch.float32),
+            self.transformer.transform_state(next_state),
+            torch.tensor(done, dtype=torch.long),
+        )
 
 
 def split_dataloader(dataset, train_fraction=0.8, batch_size=32, shuffle=True):

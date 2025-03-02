@@ -3,13 +3,15 @@ import matplotlib.pyplot as plt
 import numpy as np
 import torch
 import torch.nn as nn
+from sympy.physics.paulialgebra import epsilon
 
 import src.actions as actions
 import src.wrapper as wrapper
 from src.utils import get_x_pos
-from src.policy.dataset import HumanTrajectoriesDataLoader, HumanTrajectories
+from src.policy.dataset import HumanTrajectoriesDataLoader, DataTransformer
 from src.policy.bc import BehaviorCloningPolicy
 from src.policy.trainer import ModelTrainer
+import src.policy.dqn as dqn
 import logging
 
 logger = logging.getLogger(__name__)
@@ -46,7 +48,7 @@ def run_game(env, num_games=1, action_policy=None, epsilon=0):
                 if np.random.rand() < epsilon:
                     action = env.action_space.sample()
                 else:
-                    _observation = HumanTrajectories.transform_state(observation)
+                    _observation = DataTransformer.transform_state(observation)
                     action = action_policy.sample_action(_observation)
             observation, reward, terminated, truncated, info = env.step(action)
             reward_stats.append(reward)
@@ -60,14 +62,7 @@ def run_game(env, num_games=1, action_policy=None, epsilon=0):
         plt.show()
 
 
-def main():
-    env = create_game_env(state="Level1-1")
-
-    # only use one-life setting
-    run_game(env, num_games=10)
-
-
-def run_bc_policy(checkpoint_path):
+def run_bc_policy(checkpoint_path, *args, **kwargs):
     env = create_game_env(state="Level1-1")
     policy = ModelTrainer(
         model=BehaviorCloningPolicy(
@@ -81,7 +76,7 @@ def run_bc_policy(checkpoint_path):
     policy.load_checkpoint(checkpoint_path)
 
     # run game using the trained policy
-    run_game(env, num_games=10, action_policy=policy)
+    run_game(env, num_games=10, action_policy=policy, *args, **kwargs)
     return
 
 
@@ -107,10 +102,33 @@ def train_bc_policy(human_traj_folder="human_demon", *args, **kwargs):
     return
 
 
+def train_dqn_policy():
+    agent = dqn.DQNAgent(
+        state_dim_height=224,
+        state_dim_width=240,
+        action_dim=len(actions.SIMPLE_MOVEMENT),
+        buffer_capacity=10000,
+        batch_size=32,
+        gamma=0.99,
+        lr=1e-4,
+    )
+
+    env = create_game_env(state="Level1-1")
+    dqn.train(agent, env, num_episodes=2500, log_dir="runs/dqn_experiment_v2")
+
+
+def main():
+    env = create_game_env(state="Level1-1")
+
+    # only use one-life setting
+    run_game(env, num_games=10)
+
+
 if __name__ == "__main__":
     # main()
     # train_bc_policy(
     #     human_traj_folder="human_demon",
     #     checkpoint_name="best_checkpoint_2_traj.pt",
     # )
-    run_bc_policy("checkpoints/best_checkpoint.pt")
+    # run_bc_policy("checkpoints/best_checkpoint.pt", epsilon=0.01)
+    train_dqn_policy()

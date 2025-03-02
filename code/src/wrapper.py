@@ -1,8 +1,8 @@
 from typing import SupportsFloat, Any
 
 import gymnasium as gym
-from gymnasium.core import ActionWrapper, Env, WrapperActType, WrapperObsType
-from src.utils import get_x_pos
+from gymnasium.core import ActionWrapper, Env
+from .utils import get_x_pos
 import numpy as np
 import logging
 
@@ -92,7 +92,6 @@ class JoypadSpace(ActionWrapper):
 
 
 class CustomTerminationEnv(gym.Wrapper):
-    LOSE_PENALTY = -1000
 
     def __init__(self, env, max_no_movement_time=10):
         super().__init__(env)
@@ -127,7 +126,6 @@ class CustomTerminationEnv(gym.Wrapper):
                 "Mario has stopped moving forward for too long. Terminating episode."
             )
             terminated = True
-            reward = self.LOSE_PENALTY
 
         # Terminate if Mario loses his only life
         if self.prev_life is not None:
@@ -135,7 +133,6 @@ class CustomTerminationEnv(gym.Wrapper):
             if lives < self.prev_life:
                 logger.info("Mario lost a life. Terminating episode.")
                 terminated = True
-                reward = self.LOSE_PENALTY
         else:
             self.prev_life = info.get("lives")
 
@@ -145,18 +142,30 @@ class CustomTerminationEnv(gym.Wrapper):
 class CustomRewardEnv(gym.Wrapper):
     def __init__(self, env):
         super().__init__(env)
-        self.last_score = 0
+        self.last_info = dict()
 
     def reset(self, **kwargs):
         obs, info = self.env.reset(**kwargs)
         # Initialize the last_score using the score from info (if available)
-        self.last_score = 0
+        self.last_info = info
         return obs, info
 
     def step(self, action):
         obs, reward, terminated, truncated, info = self.env.step(action)
-        # reward = score + x_pos
-        score_diff = info.get("score", 0) - self.last_score
-        self.last_score = info.get("score", 0)
-        reward += score_diff
-        return obs, reward, terminated, truncated, info
+        done = terminated or truncated
+        new_reward = reward_function(reward, info, self.last_info, done)
+        self.last_info = info
+        return obs, new_reward, terminated, truncated, info
+
+
+def reward_function(
+    current_reward, current_info, last_info, done=False, death_penalty=-10000
+):
+    """current reward is delta_x_pos"""
+    if not done:
+        score_diff = current_info.get("score") - last_info.get("score", 0)
+        time_diff = current_info.get("time") - last_info.get("time", 400)
+        new_reward = current_reward + score_diff + time_diff
+    else:
+        new_reward = death_penalty
+    return new_reward

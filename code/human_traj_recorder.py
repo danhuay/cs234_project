@@ -17,7 +17,6 @@ from pyglet import gl
 from pyglet.window import key as keycodes
 
 import retro
-from triton.language import dtype
 
 
 class Interactive(abc.ABC):
