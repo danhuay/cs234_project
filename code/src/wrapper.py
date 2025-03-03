@@ -105,6 +105,7 @@ class CustomTerminationEnv(gym.Wrapper):
     def reset(self, **kwargs):
         obs, info = self.env.reset(**kwargs)
         self.prev_x_pos = None
+        self.prev_life = None
         self.no_movement_frames = 0
         return obs, info
 

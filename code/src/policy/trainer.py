@@ -128,11 +128,16 @@ class ModelTrainer:
 
     def load_checkpoint(self, checkpoint_path, optimizer=None):
         checkpoint = torch.load(checkpoint_path)
-        self.model.load_state_dict(checkpoint["model_state_dict"])
-        if optimizer:
-            optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
-        epoch = checkpoint["epoch"]
-        logger.info(f"Checkpoint loaded from {checkpoint_path}, epoch {epoch}")
+        try:
+            self.model.load_state_dict(checkpoint["model_state_dict"])
+            if optimizer:
+                optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
+            epoch = checkpoint["epoch"]
+            logger.info(f"Checkpoint loaded from {checkpoint_path}, epoch {epoch}")
+        except KeyError:
+            logger.warning("Checkpoint is not a dictionary of metadata.")
+            self.model.load_state_dict(checkpoint)
+            logger.info(f"Checkpoint loaded from {checkpoint_path}")
         return
 
     def sample_action(self, state):
