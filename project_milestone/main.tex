@@ -9,6 +9,23 @@
 \usepackage{booktabs} % for professional tables
 \usepackage{amsmath, amssymb}
 
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{hyperref}
+\usepackage{url}
+\usepackage{booktabs}
+\usepackage{amsfonts}
+\usepackage{nicefrac}
+\usepackage{microtype}
+\usepackage{xcolor}
+\usepackage{lipsum}
+% \usepackage[nomarkers,nolists,figuresonly]{endfloat} %comment out when finish
+\usepackage{booktabs}
+\usepackage{multirow}
+\usepackage{float}
+\usepackage{subcaption}
+
+
 % hyperref makes hyperlinks in the resulting PDF.
 % If your build breaks (sometimes temporarily if a hyperlink spans a page)
 % please comment out the following usepackage line and replace
@@ -26,7 +43,7 @@
 
 % The \icmltitle you define below is probably too long as a header.
 % Therefore, a short form for the running title is supplied here:
-\icmltitlerunning{CS234: Reinforcement Learning Winter 2025 - Final Project Proposal}
+\icmltitlerunning{CS234: Reinforcement Learning Winter 2025 - Final Project Milestone}
 
 \begin{document}
 
@@ -102,7 +119,7 @@ shown they can accelerate policy learning and achieve above-demonstration
 performance \cite{hester_dqfd_2017,nair_bcrl_overcoming_2018, song_hybrid_2023, 
 ren_hybrid_2024, Coletti2023EffectivenessOW}.
 
-This project investigates how hybrid RL can effectively enhance game control 
+This project investigates how hybrid RL (HRL) can effectively enhance game control 
 through guided explorations of the agent. It aims to evaluate the potential for 
 achieving performance that surpasses the demonstration level.
 
@@ -121,7 +138,7 @@ scores, time left, and positions of Mario, can also be retrieved for each timest
 
 To record human demonstrations, we implemented scripts that save the gameplay 
 through interactions with the environment, controlled via a game controller. 
-The trajectory data of each episode $i$ is saved as $\tau_{hd}^{i} \{(s_t, a_t, 
+The trajectory data of each episode $i$ is saved as $\tau_{hd}^{i} = \{(s_t, a_t, 
 r_t, d_t, m_t)\}_{t=0}^{T}$, where each element in the tuple represents the 
 state, action, reward, termination boolean, and metadata. We recorded five 
 gameplays by amateur players, each successfully finishing Level 1-1 without 
@@ -159,33 +176,142 @@ the time spent in seconds since the last state, and $p$ is the penalty for
 terminating the game without successfully reaching the destination.
 
 
-\subsection{Baselines}
-Offline-only and online-only approaches are used for 
-          comparisons:
-\subsubsection{Deep \textit{Q}-Learning (DQN)}
-Online-only RL: Train an agent with online exploration only, 
-                  leveraging Deep \textit{Q}-Learning (DQN) with $\epsilon$-greedy 
-                  explorations.
-\subsubsection{Behavior Cloning}
-Imitation Learning Only: Train a policy via behavioral 
-                  cloning (BC) using human demonstrations.
+\subsection{Policy Network Archetectures}
 
-\subsection{Hybrid Reinforcement Learning (HRL)}
-\subsubsection{Deep \textit{Q}-Learning from Demonstrations (DQfD)}
-Following the DQfD (Deep \textit{Q}-Learning from 
-                  Demonstrations) framework by \cite{hester_dqfd_2017}, which 
-                  incorporates expert demonstrations into the replay buffer of 
-                  DQN to control explorations.
+For comparisons, all baselines and HRL approaches will leverage the same 
+architecture of a convolutional neural network $\pi(s,a;\theta)$ that maps an RGB image of 
+dimensions \(H \times W \times 3\) to a discrete action space of 10 actions. 
+The architecture consists of three convolutional layers, with 16, 32, and 64 
+hidden channels respectively. Each convolution uses a \(3 \times 3\) kernel 
+with stride $1$ and padding $1$, followed by a ReLU activation and \(2 \times 
+2\) max pooling that halves the spatial dimensions. The output feature maps 
+are flattened into a vector, then processed by a fully connected hidden layer 
+with 512 units and ReLU activation. Finally, a linear output layer projects 
+the 512-dimensional representation to 10 logits corresponding to the available 
+actions.
+All models are trained using the AdamW optimizer with default settings from 
+PyTorch, and a learning rate of $10^{-4}$ unless otherwise specified.
+
+\subsection{Baselines}
+Here we shall establish performance of offline-only and online-only RL approaches
+as baselines to compare against future HRL approaches and human demonstration trajectories. 
+
+\subsubsection{Deep \textit{Q}-Learning (DQN)}
+
+Here we use the DQN architecture with a linearly decaying $\epsilon$-greedy 
+exploration as a baseline for the online RL approach through pure explorations. 
+We implemented the DQN architecture from scratch to facilitate future 
+modifications for the HRL approach DQfD.
+
+We set the DQN parameters as follows: the discount factor $\gamma=0.99$. The 
+replay buffer has a capacity of $|\mathcal{D}|=10000$, where new states 
+overwrite old states in a FIFO manner. The policy is trained for 2500 episodes, 
+with the target policy network updated after each episode.
+
+We made a minor modification to the classic DQN algorithm: instead of sampling 
+a minibatch of samples and updating the policy network $\pi(s,a;\theta)$ for 
+every $t$, we set a parameter $\omega$ that allows the agent to interact with 
+the environment for $\omega$ steps before updating $\pi(s,a;\theta)$. The 
+rationale is that in Super Mario Bros, after an action is played, especially 
+for a jump, there is a brief period during which no actions can be controlled. 
+Thus, adding such frames to the replay buffer becomes inefficient for updates 
+without meaningful new information. $\omega$ is empirically set to 50, which is 
+approximately under 1 second in a 60 fps game setting. $\epsilon$ is decayed 
+from 1 to 0.01 linearly, scaled by episodes interacted during the training 
+process.
+
+\subsubsection{Behavior Cloning (BC)}
+Behavioral cloning (BC) is an offline-only approach that uses supervised 
+learning to map state-action pairs from human demonstration trajectories. We 
+recorded five successful trajectories from amateur players, and each episode 
+$i$ is saved as $\tau_{hd}^{i} \{(s_t, a_t, r_t, d_t, m_t)\}_{t=0}^{T}$. All 
+$(s_t, a_t)$ pairs are randomly split into \texttt{train} and \texttt{dev} sets 
+in a 7:3 ratio. With a batch size of 32 and cross-entropy loss function, the 
+policy network $\pi(s,a;\theta)$ is trained for 500 epochs, with early 
+termination after 50 epochs based on \texttt{dev} data accuracy.
+
 
 \section{Experiements}
+In this section, we present experimental results for the aforementioned 
+approaches. All experiments are trained on a single Nvidia GeForce RTX 4070 Ti 
+SUPER 16GB GPU.
+
+\subsection{Baselines}
+
+\begin{figure}[htbp]
+      \centering
+      \includegraphics[width=0.8\columnwidth]{figures/cum_rewards_baseline.png}
+      \vspace{0.5cm} % adjust vertical space as needed
+      \includegraphics[width=0.8\columnwidth]{figures/completions_baseline.png}
+      \caption{Baseline policies in-game performance statistics for 50 episodes each.}
+      \label{fig:baseline_policies}
+\end{figure}
+
+DQN policy $\pi_{\text{DQN}}$ and BC policy $\pi_{\text{BC}}$ are learned 
+through the aforementioned setups. It took about 8 hours to train 
+$\pi_{\text{DQN}}$ and 1 hour for $\pi_{\text{BC}}$ on the GPU. After training, 
+we rolled out 50 game plays for each policy to evaluate their performance based 
+on cumulative rewards at terminated states and game completion percentage, 
+defined as the total x-scrolling distance compared to the end of the level. 
+
+Since the trained policies are deterministic, we introduce some stochasticity 
+by adding a small $\epsilon=0.01$ where the policy will act randomly. This evaluates 
+the robustness under perturbations, especially in complex game settings where 
+encountering enemies and obtaining power-ups can significantly change the best 
+actions to take. For all gameplays, the initial action is set to move right 
+regardless of the policies to avoid Mario being stalled.
+
+Both policies failed to complete the game level successfully.
+$\pi_{\text{BC}}$ demonstrates significantly better performance in terms of 
+cumulative rewards and game completions under the deterministic setup, despite 
+taking only 1/8 of the time to train compared to $\pi_{\text{DQN}}$ and using 
+only 5 human-demonstrated trajectories, as shown in Figure 
+\ref{fig:baseline_policies}. However, $\pi_{\text{BC}}$ suffers from greater 
+performance degradation when random perturbations are introduced. It exhibits 
+higher variance in performance in stochastic setups.
+$\pi_{\text{DQN}}$, on the other hand, is rather difficult to train. In the 
+complex game environment, though rewards are not sparse, encountering enemies 
+and power-ups makes the Markov assumptions less valid, and the pipes in the 
+game create challenges for the agent to explore states effectively. Thus, the 
+explorations are rarely sufficient to learn good $Q$ value estimations even 
+after 2500 episodes (see Appendix \ref{a2:dqn}). The trained $\pi_{\text{DQN}}$ 
+does not compare with $\pi_{\text{BC}}$ in deterministic settings but shows 
+superior stability in terms of variance when randomness is introduced, with 
+increased performance when acting stochastically. This illustrates that the 
+current exploration is sub-optimal, and when exploring guided by human 
+demonstrations, it could surpass $\pi_{\text{BC}}$ in performance.
 
 \section{Next Steps}
-Leveraging behavioral cloning (BC) as a warm-start, then 
-                  further leveraging PPO (Proximal Policy Optimization) for 
-                  policy fine-tuning. This approach is inspired by 
-                  \cite{Coletti2023EffectivenessOW}.
+Above initial results show the expected performance of baselines. The remaining 
+work of the project involves finishing the implementation of the HRL algorithms 
+and evaluating the performance of each approach.
 
+\subsection{Deep \textit{Q}-Learning from Demonstrations (DQfD)}
 
+Following the DQfD (Deep \textit{Q}-Learning from Demonstrations) framework by 
+\cite{hester_dqfd_2017}, we incorporate human demonstrations into the replay 
+buffer $\mathcal{D}$ of DQN to control explorations. This builds on the already 
+implemented DQN framework, where the loss functions and replay buffer 
+trajectories are modified to include human demonstrations.
+
+\subsection{PPO with Behavior Cloning Warm-start}
+
+Inspired by \cite{Coletti2023EffectivenessOW}, this approach leverages 
+$\pi_{\text{BC}}$ trained model weights as a warm-start, then further leverages 
+PPO for policy fine-tuning. PPO's property of 
+prohibiting significant updates to the policies ensures that explorations will 
+be around human demonstrations, with the possibility to improve and surpass 
+human performance.
+
+\subsection{Evaluations}
+We will evaluate the approaches using both quantitative and qualitative metrics. 
+Quantitatively, performance will be measured via cumulative reward, level 
+completion rate, and distance traversed per episode, plotted as learning curves 
+against training episodes or timesteps. Multiple independent runs will ensure 
+statistical significance. Sample efficiency will be analyzed by measuring 
+interactions required to reach performance thresholds and wall-clock training 
+time. Qualitatively, gameplay visualizations and trajectory overlays will 
+provide insights into behavioral strategies.
 
 
 \bibliography{ref}
@@ -193,6 +319,10 @@ Leveraging behavioral cloning (BC) as a warm-start, then
 
 \clearpage
 \appendix
+\renewcommand{\thefigure}{A\arabic{figure}}
+\renewcommand{\thetable}{A\arabic{table}}
+\setcounter{figure}{0}
+\setcounter{table}{0}
 \onecolumn
 \section{Appendix}
 \subsection{Custom Environment}
@@ -221,16 +351,31 @@ meaningful_actions = [
 ]
 \end{verbatim}
 
+\subsection{DQN Training}
+\label{a2:dqn}
+
+$\pi_{\text{DQN}}$ is rather difficult to train. In the 
+complex Super Mario Bros game environment, though rewards are not sparse, encountering enemies 
+and power-ups makes the Markov assumptions less valid, and the pipes in the 
+game create challenges for the agent to explore states effectively.
+
+As seen in Figure \ref{figa:dqn}, the loss has increased as random explorations 
+reduced. The rewards grow very slowly and drastically drop at the end. We 
+observed the policy was stuck in a reward-hacking phase where Mario moves only 
+to the left until time-out termination. This reduces the risks of getting stuck 
+at further pipes with lower rewards and encountering enemies. Such behaviors 
+might be addressed by tuning reward functions and exploring if HRL can help 
+with this situation.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.45\columnwidth]{figures/dqn_rewards.png}
+\hspace{0.5cm} % adjust horizontal space as needed
+\includegraphics[width=0.45\columnwidth]{figures/dqn_loss.png}
+\caption{DQN training loss and rewards}
+\label{figa:dqn}
+\end{figure}
+
+
+
 \end{document}
-
-
-["NULL"],
-["A"],
-["RIGHT"],
-["RIGHT", "A"],
-["LEFT"],
-["LEFT", "A"],
-["B"],
-["A", "B"],
-["RIGHT", "B"],
-["RIGHT", "A", "B"],
