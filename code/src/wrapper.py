@@ -1,10 +1,9 @@
-from typing import SupportsFloat, Any
+import logging
 
 import gymnasium as gym
-from gymnasium.core import ActionWrapper, Env
-from .utils import get_x_pos
 import numpy as np
-import logging
+from gymnasium.core import ActionWrapper, Env
+from final_project.code.src.utils import get_x_pos
 
 logger = logging.getLogger(__name__)
 

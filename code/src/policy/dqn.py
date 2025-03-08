@@ -1,13 +1,13 @@
-import torch
+import logging
+import random
+from collections import deque
+
 import torch.nn as nn
 import torch.optim as optim
-import torch.nn.functional as F
 from torch.utils.tensorboard import SummaryWriter
-from .bc import BehaviorCloningPolicy
-from .dataset import *
-from collections import deque
-import random
-import logging
+
+from final_project.code.src.policy.base import CNNPolicy
+from final_project.code.src.policy.dataset import *
 
 logger = logging.getLogger(__name__)
 
@@ -62,12 +62,12 @@ class DQNAgent:
 
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         # Main and target networks
-        self.policy_net = BehaviorCloningPolicy(
-            state_dim_height, state_dim_width, action_dim
-        ).to(self.device)
-        self.target_net = BehaviorCloningPolicy(
-            state_dim_height, state_dim_width, action_dim
-        ).to(self.device)
+        self.policy_net = CNNPolicy(state_dim_height, state_dim_width, action_dim).to(
+            self.device
+        )
+        self.target_net = CNNPolicy(state_dim_height, state_dim_width, action_dim).to(
+            self.device
+        )
         self.target_net.load_state_dict(self.policy_net.state_dict())
         self.target_net.eval()  # set target network to evaluation mode
 

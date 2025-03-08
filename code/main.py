@@ -5,13 +5,16 @@ import torch
 import torch.nn as nn
 import matplotlib.pyplot as plt
 from torch.utils.tensorboard import SummaryWriter
-import src.actions as actions
-import src.wrapper as wrapper
-from src.utils import get_x_pos
-from src.policy.dataset import HumanTrajectoriesDataLoader, DataTransformer
-from src.policy.bc import BehaviorCloningPolicy
-from src.policy.trainer import ModelTrainer
-import src.policy.dqn as dqn
+import final_project.code.src.actions as actions
+import final_project.code.src.wrapper as wrapper
+from final_project.code.src.utils import get_x_pos
+from final_project.code.src.policy.dataset import (
+    HumanTrajectoriesDataLoader,
+    DataTransformer,
+)
+from final_project.code.src.policy.base import CNNPolicy
+from final_project.code.src.policy.trainer import ModelTrainer
+import final_project.code.src.policy.dqn as dqn
 import logging
 
 logger = logging.getLogger(__name__)
@@ -70,10 +73,7 @@ def run_game(
 
     # log the end files to csv
     df = pd.DataFrame(
-        {
-            "cum_rewards": n_game_end_rewards,
-            "completion": n_game_end_positions,
-        }
+        {"cum_rewards": n_game_end_rewards, "completion": n_game_end_positions}
     )
     df.to_csv(experiment_name + "_log.csv", index=False)
 
@@ -105,7 +105,7 @@ def run_game(
 def run_policy(checkpoint_path, *args, **kwargs):
     env = create_game_env(state="Level1-1")
     policy = ModelTrainer(
-        model=BehaviorCloningPolicy(
+        model=CNNPolicy(
             input_height=224, input_width=240, action_dim=len(actions.SIMPLE_MOVEMENT)
         ),
         train_dataloader=None,
@@ -125,7 +125,7 @@ def train_bc_policy(human_traj_folder="human_demon", *args, **kwargs):
         human_traj_folder, split=True, train_fraction=0.7, batch_size=32, shuffle=True
     )
 
-    model = BehaviorCloningPolicy(
+    model = CNNPolicy(
         input_height=224, input_width=240, action_dim=len(actions.SIMPLE_MOVEMENT)
     )
     trainer = ModelTrainer(

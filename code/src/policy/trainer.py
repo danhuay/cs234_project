@@ -1,9 +1,9 @@
-import torch
-from torch.utils.tensorboard import SummaryWriter
-import numpy as np
+import logging
 import os
 import time
-import logging
+
+import torch
+from torch.utils.tensorboard import SummaryWriter
 
 logger = logging.getLogger(__name__)
 

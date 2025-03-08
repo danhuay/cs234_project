@@ -1,12 +1,12 @@
+import logging
+
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
-import logging
 
 logger = logging.getLogger(__name__)
 
 
-class BehaviorCloningPolicy(nn.Module):
+class CNNPolicy(nn.Module):
     def __init__(
         self,
         input_height,
@@ -20,7 +20,7 @@ class BehaviorCloningPolicy(nn.Module):
         stride=1,
         padding=1,
     ):
-        super(BehaviorCloningPolicy, self).__init__()
+        super(CNNPolicy, self).__init__()
 
         # Store input size
         self.input_height = input_height

@@ -1,10 +1,11 @@
-import torch
-from torch.utils.data import Dataset, DataLoader, random_split
-from ..utils import load_trajectories
-from ..actions import SIMPLE_MOVEMENT
 import logging
 
-from ..wrapper import JoypadSpace, reward_function
+import torch
+from torch.utils.data import Dataset, DataLoader, random_split
+
+from final_project.code.src.actions import SIMPLE_MOVEMENT
+from final_project.code.src.utils import load_trajectories
+from final_project.code.src.wrapper import JoypadSpace, reward_function
 
 logger = logging.getLogger(__name__)
 
