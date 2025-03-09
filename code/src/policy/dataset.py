@@ -1,11 +1,17 @@
 import logging
 
 import torch
-from torch.utils.data import Dataset, DataLoader, random_split
+from torch.utils.data import (
+    Dataset,
+    DataLoader,
+    random_split,
+    Sampler,
+)
 
 from final_project.code.src.actions import SIMPLE_MOVEMENT
 from final_project.code.src.utils import load_trajectories
-from final_project.code.src.wrapper import JoypadSpace, reward_function
+from final_project.code.src.wrapper import JoypadSpace
+import random
 
 logger = logging.getLogger(__name__)
 
@@ -80,7 +86,29 @@ class ReplayBufferDataset(Dataset):
         )
 
 
-def split_dataloader(dataset, train_fraction=0.8, batch_size=32, shuffle=True):
+class CustomSampler(Sampler):
+    def __init__(self, target, downsample_class, downsample_rate=0.5):
+        self.indices = []
+        for idx, label in enumerate(target):
+            if label == downsample_class:
+                # Include this sample with probability = downsample_rate
+                if torch.rand(1).item() < downsample_rate:
+                    self.indices.append(idx)
+            else:
+                self.indices.append(idx)
+
+    def __iter__(self):
+        # Sample indices with replacement
+        # For example, sample len(self.indices) elements with replacement.
+        return iter(random.choices(self.indices, k=len(self.indices)))
+
+    def __len__(self):
+        return len(self.indices)
+
+
+def split_dataloader(
+    dataset, sampler=None, train_fraction=0.8, batch_size=32, shuffle=True
+):
     """
     Splits the dataset into train and dev sets based on the given fraction.
 
@@ -99,18 +127,14 @@ def split_dataloader(dataset, train_fraction=0.8, batch_size=32, shuffle=True):
     dev_size = len(dataset) - train_size
 
     # Split the dataset
+    train_dataset, dev_dataset = random_split(dataset, [train_size, dev_size])
 
     # Optionally shuffle the data
-    if shuffle:
-        train_dataset, dev_dataset = random_split(dataset, [train_size, dev_size])
-        train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
-        dev_loader = DataLoader(dev_dataset, batch_size=batch_size, shuffle=False)
+    if sampler:
+        train_loader = DataLoader(train_dataset, batch_size=batch_size, sampler=sampler)
+        dev_loader = DataLoader(dev_dataset, batch_size=batch_size, sampler=sampler)
     else:
-        train_dataset = torch.utils.data.Subset(dataset, list(range(train_size)))
-        dev_dataset = torch.utils.data.Subset(
-            dataset, list(range(train_size, len(dataset)))
-        )
-        train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=False)
+        train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=shuffle)
         dev_loader = DataLoader(dev_dataset, batch_size=batch_size, shuffle=False)
 
     return train_loader, dev_loader

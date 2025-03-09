@@ -21,6 +21,7 @@ class ModelTrainer:
         checkpoint_name="best_checkpoint.pt",
         experiment_name="experiment",
         log_dir="logs",
+        early_stopping_patience=10,
     ):
         self.model = model
         self.train_dataloader = train_dataloader
@@ -38,7 +39,7 @@ class ModelTrainer:
         self.log_dir = log_dir
         self.writer = SummaryWriter(f"{log_dir}/{experiment_name}")
         self.early_stopping_patience = (
-            10  # how many eval cycles to wait if no improvement
+            early_stopping_patience  # how many eval cycles to wait if no improvement
         )
 
         # Create checkpoint directory if it doesn't exist

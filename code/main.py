@@ -15,10 +15,21 @@ from final_project.code.src.policy.dataset import (
 from final_project.code.src.policy.base import CNNPolicy
 from final_project.code.src.policy.trainer import ModelTrainer
 import final_project.code.src.policy.dqn as dqn
+import random
 import logging
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(format="%(asctime)s - %(message)s", level=logging.INFO)
+
+
+def set_seed(seed):
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)  # if you are using multi-GPU.
+    np.random.seed(seed)
+    random.seed(seed)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
 
 
 def create_game_env(*args, **kwargs):
@@ -120,7 +131,9 @@ def run_policy(checkpoint_path, *args, **kwargs):
     return
 
 
-def train_bc_policy(human_traj_folder="human_demon", *args, **kwargs):
+def train_bc_policy(
+    human_traj_folder="human_demon", num_epochs=500, eval_interval=5, *args, **kwargs
+):
     train_dl, dev_dl = HumanTrajectoriesDataLoader(
         human_traj_folder, split=True, train_fraction=0.7, batch_size=32, shuffle=True
     )
@@ -138,7 +151,7 @@ def train_bc_policy(human_traj_folder="human_demon", *args, **kwargs):
         **kwargs,
     )
 
-    trainer.train(num_epochs=500, eval_interval=5)
+    trainer.train(num_epochs=num_epochs, eval_interval=eval_interval)
     return
 
 
@@ -166,14 +179,24 @@ def main():
 
 if __name__ == "__main__":
     # main()
+
+    # Example usage
+    set_seed(12345)
+
+    model_name = "dqn_model_reload_new_arch"
     # train_bc_policy(
     #     human_traj_folder="human_demon",
-    #     checkpoint_name="best_checkpoint_2_traj.pt",
+    #     checkpoint_name=f"{model_name}.pt",
+    #     num_epochs=500,
+    #     eval_interval=5,
+    #     early_stopping_patience=10,
     # )
+
+    epsilon = 0.01
     run_policy(
-        "checkpoints/dqn_model.pth",
+        f"checkpoints/{model_name}.pt",
         num_games=10,
-        epsilon=0,
-        experiment_name="runs/run_dqn_policy_0",
+        epsilon=epsilon,
+        experiment_name=f"runs/run_{model_name}_policy_{epsilon}",
     )
     # train_dqn_policy()

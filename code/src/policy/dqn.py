@@ -171,5 +171,5 @@ def train(
     writer.close()
 
     # Save the model
-    torch.save(agent.policy_net.state_dict(), "checkpoints/dqn_model.pth")
+    torch.save(agent.policy_net.state_dict(), "checkpoints/dqn_model.pt")
     return episode_rewards
