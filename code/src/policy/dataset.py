@@ -26,8 +26,7 @@ class DataTransformer:
 
     @staticmethod
     def transform_rewards(*args, **kwargs):
-        reward = reward_function(*args, **kwargs)
-        return torch.tensor(reward, dtype=torch.float32)
+        raise NotImplementedError
 
 
 class HumanTrajectories(Dataset):
@@ -43,6 +42,14 @@ class HumanTrajectories(Dataset):
         """
         self.states, self.actions, self.info = load_trajectories(traj_folder)
         self.transformer = DataTransformer()
+
+    def __len__(self):
+        return len(self.states)
+
+    def __getitem__(self, item):
+        state = self.transformer.transform_state(self.states[item])
+        action = self.transformer.transform_action(self.actions[item])
+        return state, action
 
 
 class ReplayBufferDataset(Dataset):
@@ -92,13 +99,17 @@ def split_dataloader(dataset, train_fraction=0.8, batch_size=32, shuffle=True):
     dev_size = len(dataset) - train_size
 
     # Split the dataset
-    train_dataset, dev_dataset = random_split(dataset, [train_size, dev_size])
 
     # Optionally shuffle the data
     if shuffle:
+        train_dataset, dev_dataset = random_split(dataset, [train_size, dev_size])
         train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
         dev_loader = DataLoader(dev_dataset, batch_size=batch_size, shuffle=False)
     else:
+        train_dataset = torch.utils.data.Subset(dataset, list(range(train_size)))
+        dev_dataset = torch.utils.data.Subset(
+            dataset, list(range(train_size, len(dataset)))
+        )
         train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=False)
         dev_loader = DataLoader(dev_dataset, batch_size=batch_size, shuffle=False)
 

@@ -142,6 +142,9 @@ class ModelTrainer:
 
     def sample_action(self, state):
         state = state.to(self.device)
+        if state.ndim == 3:
+            state = state.unsqueeze(0)  # Now state shape becomes (1, 3, h, w)
+
         action_t = self.model.predict(state)
         # flatten the output tensor
         # convert to numpy array with int type
