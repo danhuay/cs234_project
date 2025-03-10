@@ -15,6 +15,8 @@ class CNNFeatureExtractor(nn.Module):
         padding=1,
     ):
         super().__init__()
+        self.input_height = input_height
+        self.input_width = input_width
         self.features = nn.Sequential(
             nn.Conv2d(3, conv1_channels, kernel_size, stride, padding),
             nn.ReLU(),
@@ -29,17 +31,17 @@ class CNNFeatureExtractor(nn.Module):
 
     def forward(self, x):
         x = self.features(x)
-        flattend_x = x.view(x.size(0), -1)
+        flattend_x = x.reshape(x.size(0), -1)
         return flattend_x
 
-    def get_output_size(self, input_height, input_width):
+    def get_output_size(self):
         dummy_input = torch.zeros(
-            1, 3, input_height, input_width
+            1, 3, self.input_height, self.input_width
         )  # (batch_size, channels, height, width)
         # If your model is on the GPU, move the dummy input there:
         dummy_input = dummy_input.to(next(self.features.parameters()).device)
         dummy_output = self.features(dummy_input)
-        flattened_size = dummy_output.view(dummy_output.size(0), -1).size(1)
+        flattened_size = dummy_output.reshape(dummy_output.size(0), -1).size(1)
         return flattened_size
 
 
@@ -81,14 +83,23 @@ class CNNPolicy(nn.Module):
             stride,
             padding,
         )
-        feature_dim = self.features.get_output_size(input_height, input_width)
+        feature_dim = self.features.get_output_size()
         self.classifier = MLPPolicy(feature_dim, action_dim, hidden_units)
 
     def forward(self, x):
+        # add batch dimension if needed
+        if x.ndim == 3:
+            x = x.unsqueeze(0)
         features = self.features(x)
         return self.classifier(features)
 
     def predict(self, x):
         with torch.no_grad():
             logits = self(x)
-        return torch.argmax(logits, dim=1)
+        action_t = torch.argmax(logits, dim=1)
+        return int(action_t.squeeze().detach().cpu().numpy())
+
+    def predict_stochastic(self, x):
+        with torch.no_grad():
+            logits = self(x)
+        return torch.distributions.Categorical(logits=logits).sample().item()

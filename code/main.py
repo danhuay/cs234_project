@@ -1,22 +1,30 @@
+import logging
+import os
+import random
+
+import matplotlib.pyplot as plt
+import numpy as np
 import pandas as pd
 import retro
-import numpy as np
 import torch
 import torch.nn as nn
-import matplotlib.pyplot as plt
+from stable_baselines3 import PPO
+from stable_baselines3.common.callbacks import EvalCallback, CheckpointCallback
+from stable_baselines3.common.vec_env import SubprocVecEnv
+from torch.backends.cudnn import deterministic
 from torch.utils.tensorboard import SummaryWriter
+
 import final_project.code.src.actions as actions
+import final_project.code.src.policy.dqn as dqn
 import final_project.code.src.wrapper as wrapper
-from final_project.code.src.utils import get_x_pos
+from final_project.code.src.policy.base import CNNPolicy
 from final_project.code.src.policy.dataset import (
     HumanTrajectoriesDataLoader,
     DataTransformer,
 )
-from final_project.code.src.policy.base import CNNPolicy
+from final_project.code.src.policy.ppo import CustomActorCriticPolicy, PPOPolicy
 from final_project.code.src.policy.trainer import ModelTrainer
-import final_project.code.src.policy.dqn as dqn
-import random
-import logging
+from final_project.code.src.utils import get_x_pos
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(format="%(asctime)s - %(message)s", level=logging.INFO)
@@ -44,9 +52,16 @@ def create_game_env(*args, **kwargs):
 
 
 def run_game(
-    env, num_games=10, action_policy=None, epsilon=0, experiment_name="runs/run_game"
+    env,
+    num_games=10,
+    action_policy=None,
+    epsilon=0,
+    experiment_name="runs/run_game",
+    deterministic=True,
+    *args,
+    **kwargs,
 ):
-    writer = SummaryWriter(experiment_name)
+    # writer = SummaryWriter(experiment_name)
     n_game_end_rewards = list()
     n_game_end_positions = list()
     finishline_positions = (12.0 * 256.0) + 70.0  # from the human gameplay end state
@@ -70,10 +85,9 @@ def run_game(
                 if np.random.rand() < epsilon:
                     action = env.action_space.sample()
                 else:
-                    _observation = DataTransformer.transform_state(observation)
-                    action = action_policy.sample_action(_observation)
+                    action = action_policy.sample_action(observation, deterministic)
             observation, reward, terminated, truncated, info = env.step(action)
-            writer.add_scalar("Game Cumulative Reward", cum_rewards, step)
+            # writer.add_scalar("Game Cumulative Reward", cum_rewards, step)
             step += 1
             cum_rewards += reward
             env.render()
@@ -88,43 +102,48 @@ def run_game(
     )
     df.to_csv(experiment_name + "_log.csv", index=False)
 
-    # for plots
-    """Logs a box plot image to TensorBoard"""
-    fig, ax = plt.subplots()
-    ax.boxplot(np.array(n_game_end_rewards), vert=True, patch_artist=True)
-    ax.set_title("Reward Distribution per Episode")
-    ax.set_xlabel("Episodes")
-    ax.set_ylabel("Reward")
-
-    # Convert figure to TensorBoard image format
-    writer.add_figure("Boxplot/Reward Distribution", fig)
-    plt.close(fig)
-
-    fig, ax = plt.subplots()
-    ax.boxplot(np.array(n_game_end_positions), vert=True, patch_artist=True)
-    ax.set_title("Level Completion per Episode")
-    ax.set_xlabel("Episodes")
-    ax.set_ylabel("Level Completion")
-
-    # Convert figure to TensorBoard image format
-    writer.add_figure("Boxplot/Level Completion Distribution", fig)
-    plt.close(fig)
+    # # for plots
+    # """Logs a box plot image to TensorBoard"""
+    # fig, ax = plt.subplots()
+    # ax.boxplot(np.array(n_game_end_rewards), vert=True, patch_artist=True)
+    # ax.set_title("Reward Distribution per Episode")
+    # ax.set_xlabel("Episodes")
+    # ax.set_ylabel("Reward")
+    #
+    # # Convert figure to TensorBoard image format
+    # writer.add_figure("Boxplot/Reward Distribution", fig)
+    # plt.close(fig)
+    #
+    # fig, ax = plt.subplots()
+    # ax.boxplot(np.array(n_game_end_positions), vert=True, patch_artist=True)
+    # ax.set_title("Level Completion per Episode")
+    # ax.set_xlabel("Episodes")
+    # ax.set_ylabel("Level Completion")
+    #
+    # # Convert figure to TensorBoard image format
+    # writer.add_figure("Boxplot/Level Completion Distribution", fig)
+    # plt.close(fig)
 
     return
 
 
-def run_policy(checkpoint_path, *args, **kwargs):
+def run_policy(checkpoint_path, ppo=False, *args, **kwargs):
     env = create_game_env(state="Level1-1")
-    policy = ModelTrainer(
-        model=CNNPolicy(
-            input_height=224, input_width=240, action_dim=len(actions.SIMPLE_MOVEMENT)
-        ),
-        train_dataloader=None,
-        dev_dataloader=None,
-        optimizer=None,
-        criterion=None,
-    )
-    policy.load_checkpoint(checkpoint_path)
+    if ppo:
+        policy = PPOPolicy(checkpoint_path)
+    else:
+        policy = ModelTrainer(
+            model=CNNPolicy(
+                input_height=224,
+                input_width=240,
+                action_dim=len(actions.SIMPLE_MOVEMENT),
+            ),
+            train_dataloader=None,
+            dev_dataloader=None,
+            optimizer=None,
+            criterion=None,
+        )
+        policy.load_checkpoint(checkpoint_path)
 
     # run game using the trained policy
     run_game(env, action_policy=policy, *args, **kwargs)
@@ -167,7 +186,55 @@ def train_dqn_policy():
     )
 
     env = create_game_env(state="Level1-1")
-    dqn.train(agent, env, num_episodes=2500, log_dir="runs/dqn_experiment_v2")
+    dqn.train(agent, env, num_episodes=2500, log_dir="runs/dqn_experiment_new_reward")
+
+
+def train_ppo_policy(
+    training_steps=100000,  # Total environment steps
+    checkpoint_freq=500,
+    model_name="ppo",
+    n_envs=2,  # Number of parallel environments
+    warm_start=False,
+):
+    # Create multiple environments using SubprocVecEnv for parallel processing
+    env = SubprocVecEnv(
+        [lambda: create_game_env(state="Level1-1") for _ in range(n_envs)]
+    )
+
+    # Ensure checkpoint directory exists
+    checkpoint_dir = f"checkpoints/{model_name}/"
+    os.makedirs(checkpoint_dir, exist_ok=True)
+
+    # Set up checkpoint callback (saves model every checkpoint_freq steps)
+    checkpoint_callback = CheckpointCallback(
+        save_freq=checkpoint_freq,
+        save_path=checkpoint_dir,
+        name_prefix="ppo_checkpoint",
+        save_replay_buffer=True,
+        save_vecnormalize=True,
+    )
+
+    # Initialize PPO with multiple environments
+    if warm_start:
+        model = PPO.load(f"{checkpoint_dir}/final_model")
+        model.set_env(env)
+    else:
+        model = PPO(
+            CustomActorCriticPolicy,
+            env,
+            n_steps=1024,  # Number of steps per rollout (per environment)
+            batch_size=32,
+            n_epochs=10,  # Number of optimization epochs per rollout batch
+            learning_rate=1e-4,
+            tensorboard_log=f"runs/{model_name}",
+            verbose=1,
+        )
+
+    # Train the model with both evaluation and checkpoint callbacks
+    model.learn(total_timesteps=training_steps, callback=checkpoint_callback)
+
+    # Save the final model
+    model.save(f"{checkpoint_dir}/final_model")
 
 
 def main():
@@ -182,8 +249,7 @@ if __name__ == "__main__":
 
     # Example usage
     set_seed(12345)
-
-    model_name = "dqn_model_reload_new_arch"
+    # train_dqn_policy()
     # train_bc_policy(
     #     human_traj_folder="human_demon",
     #     checkpoint_name=f"{model_name}.pt",
@@ -192,11 +258,39 @@ if __name__ == "__main__":
     #     early_stopping_patience=10,
     # )
 
-    epsilon = 0.01
+    # model_name = "ppo_model_new_reward"
+    # train_ppo_policy(
+    #     training_steps=1000000,
+    #     checkpoint_freq=50000,
+    #     model_name=model_name,
+    #     n_envs=2,
+    #     warm_start=True,
+    # )
+
+    # # final eval
+    # epsilon = 0.0
+    # model_name = "best_checkpoint_reload_new_arch"
+    # run_policy(
+    #     f"checkpoints/{model_name}.pt",
+    #     num_games=10,
+    #     epsilon=epsilon,
+    #     experiment_name=f"runs/run_{model_name}_policy_{epsilon}",
+    # )
+
+    # run_policy(
+    #     f"checkpoints/best_checkpoint_reload_new_arch.pt",
+    #     num_games=10,
+    #     epsilon=0,
+    #     experiment_name=f"runs/run_bc_policy_0",
+    #     ppo=False,
+    # )
+
     run_policy(
-        f"checkpoints/{model_name}.pt",
-        num_games=10,
-        epsilon=epsilon,
-        experiment_name=f"runs/run_{model_name}_policy_{epsilon}",
+        f"checkpoints/best_checkpoint_reload_new_arch.pt",
+        num_games=50,
+        epsilon=0.01,
+        experiment_name=f"runs/run_bc_policy_0.01",
+        ppo=False,
     )
-    # train_dqn_policy()
+
+    # # train_dqn_policy()

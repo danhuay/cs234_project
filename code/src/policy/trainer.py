@@ -4,6 +4,7 @@ import time
 
 import torch
 from torch.utils.tensorboard import SummaryWriter
+from final_project.code.src.policy.dataset import DataTransformer
 
 logger = logging.getLogger(__name__)
 
@@ -141,13 +142,14 @@ class ModelTrainer:
             logger.info(f"Checkpoint loaded from {checkpoint_path}")
         return
 
-    def sample_action(self, state):
+    def sample_action(self, observation, deterministic=True):
+        state = DataTransformer.transform_state(observation)
         state = state.to(self.device)
         if state.ndim == 3:
             state = state.unsqueeze(0)  # Now state shape becomes (1, 3, h, w)
 
-        action_t = self.model.predict(state)
-        # flatten the output tensor
-        # convert to numpy array with int type
-        action = int(action_t.squeeze().detach().cpu().numpy())
+        if deterministic:
+            action = self.model.predict(state)
+        else:
+            action = self.model.predict_stochastic(state)
         return action

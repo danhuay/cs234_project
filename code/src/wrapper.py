@@ -143,29 +143,79 @@ class CustomRewardEnv(gym.Wrapper):
     def __init__(self, env):
         super().__init__(env)
         self.last_info = dict()
+        self.furthest_x = 0
+        self.milestone_reached = set()
+
+    def get_game_completion(self, info):
+        finishline_positions = (12.0 * 256.0) + 70.0
+        x_pos = get_x_pos(info)
+        return round(x_pos, 2)
 
     def reset(self, **kwargs):
         obs, info = self.env.reset(**kwargs)
         # Initialize the last_score using the score from info (if available)
         self.last_info = info
+        self.furthest_x = 0
         return obs, info
 
     def step(self, action):
         obs, reward, terminated, truncated, info = self.env.step(action)
+        self.furthest_x = max(self.furthest_x, get_x_pos(info))
+
         done = terminated or truncated
-        new_reward = reward_function(reward, info, self.last_info, done)
+        new_reward = self.reward_function(reward, info, self.last_info, done)
+
         self.last_info = info
         return obs, new_reward, terminated, truncated, info
 
+    def reward_function(
+        self,
+        current_reward,
+        current_info,
+        last_info,
+        done=False,
+        death_penalty=-500,  # Still penalize dying but not too extreme
+        time_penalty_per_step=-0.1,  # Small penalty per step to prevent stalling
+        progress_reward_weight=1.0,  # Reward for moving right (higher than before)
+    ):
+        """Modified reward function for better learning."""
 
-def reward_function(
-    current_reward, current_info, last_info, done=False, death_penalty=-10000
-):
-    """current reward is delta_x_pos"""
-    if not done:
-        score_diff = current_info.get("score") - last_info.get("score", 0)
-        time_diff = current_info.get("time") - last_info.get("time", 400)
-        new_reward = current_reward + score_diff + time_diff
-    else:
-        new_reward = death_penalty
-    return new_reward
+        # Extract game state info
+        score_diff = current_info.get("score", 0) - last_info.get("score", 0)
+        curr_xpos = get_x_pos(current_info)
+        xpos_diff = curr_xpos - get_x_pos(last_info)
+
+        # game completion milestones (every 10% of the game)
+        milestones = [round(0.1 * x, 1) for x in range(11)]
+        reached_milestones = list(filter(lambda x: x <= curr_xpos, milestones))
+        if len(reached_milestones) > len(self.milestone_reached):
+            milestone_bonus = reached_milestones[-1] * 1000
+        else:
+            self.milestone_reached = reached_milestones
+            milestone_bonus = 0
+
+        # Encourage moving right (progress reward) if left then negative
+        progress_reward = xpos_diff * progress_reward_weight
+
+        # Reward function
+        if not done:
+            new_reward = (
+                score_diff + progress_reward + time_penalty_per_step + milestone_bonus
+            )
+        else:
+            new_reward = death_penalty
+
+        return new_reward
+
+
+# def reward_function(
+#     current_reward, current_info, last_info, done=False, death_penalty=-10000
+# ):
+#     """current reward is delta_x_pos"""
+#     if not done:
+#         score_diff = current_info.get("score") - last_info.get("score", 0)
+#         time_diff = current_info.get("time") - last_info.get("time", 400)
+#         new_reward = current_reward + score_diff + time_diff
+#     else:
+#         new_reward = death_penalty
+#     return new_reward
