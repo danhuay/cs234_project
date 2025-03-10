@@ -1,5 +1,6 @@
 import os
 import pickle
+import torch
 
 
 def get_x_pos(info):
@@ -49,3 +50,50 @@ def load_trajectories(traj_folder):
     assert len(states) == len(actions) == len(info)
 
     return states, actions, info
+
+
+def pretrained_weights_breakdown_for_ppo(pretrained_weights_path):
+    checkpoint = torch.load(pretrained_weights_path)
+    if "model_state_dict" in checkpoint:
+        checkpoint = checkpoint["model_state_dict"]
+
+    # get the feature extractor part
+    feature_extractor_state_dict = {
+        k.replace("features.", "cnn_extractor.", 1): v  # Remove 'features.' prefix
+        for k, v in checkpoint.items()
+        if k.startswith("features.")
+    }
+
+    # get the mlp part
+    w = {
+        k.replace("classifier.", ""): v
+        for k, v in checkpoint.items()
+        if k.startswith("classifier.")
+    }
+
+    # get the mlp_extractor part
+    mlp_extractor_state_dict = {k: v for k, v in w.items() if k.startswith("0.")}
+
+    action_net_state_dict = {
+        k.replace("2.", ""): v for k, v in w.items() if k.startswith("2.")
+    }
+
+    return feature_extractor_state_dict, mlp_extractor_state_dict, action_net_state_dict
+
+
+def load_retrained_weights_to_ppo(model, pretrained_weights_path):
+    """model is a PPO policy from baseline3.
+    pretrained_weights_path is the path to the pretrained weights
+    from CNNPolicy
+    """
+    (
+        feature_extractor_state_dict,
+        mlp_extractor_state_dict,
+        action_net_state_dict,
+    ) = pretrained_weights_breakdown_for_ppo(pretrained_weights_path)
+
+    model.policy.features_extractor.load_state_dict(feature_extractor_state_dict)
+    model.policy.mlp_extractor.policy_net.load_state_dict(mlp_extractor_state_dict)
+    model.policy.mlp_extractor.value_net.load_state_dict(mlp_extractor_state_dict)
+    model.policy.action_net.load_state_dict(action_net_state_dict)
+    return model

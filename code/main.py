@@ -24,7 +24,7 @@ from final_project.code.src.policy.dataset import (
 )
 from final_project.code.src.policy.ppo import CustomActorCriticPolicy, PPOPolicy
 from final_project.code.src.policy.trainer import ModelTrainer
-from final_project.code.src.utils import get_x_pos
+from final_project.code.src.utils import get_x_pos, load_retrained_weights_to_ppo
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(format="%(asctime)s - %(message)s", level=logging.INFO)
@@ -195,6 +195,7 @@ def train_ppo_policy(
     model_name="ppo",
     n_envs=2,  # Number of parallel environments
     warm_start=False,
+    pretrained_weights_path=None,
 ):
     # Create multiple environments using SubprocVecEnv for parallel processing
     env = SubprocVecEnv(
@@ -230,6 +231,10 @@ def train_ppo_policy(
             verbose=1,
         )
 
+    if pretrained_weights_path:
+        # loading BC feature extractor to PPO model
+        load_retrained_weights_to_ppo(model, pretrained_weights_path)
+
     # Train the model with both evaluation and checkpoint callbacks
     model.learn(total_timesteps=training_steps, callback=checkpoint_callback)
 
@@ -258,14 +263,15 @@ if __name__ == "__main__":
     #     early_stopping_patience=10,
     # )
 
-    # model_name = "ppo_model_new_reward"
-    # train_ppo_policy(
-    #     training_steps=1000000,
-    #     checkpoint_freq=50000,
-    #     model_name=model_name,
-    #     n_envs=2,
-    #     warm_start=True,
-    # )
+    model_name = "hrl_bc_ppo_model"
+    train_ppo_policy(
+        training_steps=1000000,
+        checkpoint_freq=50000,
+        model_name=model_name,
+        n_envs=2,
+        warm_start=False,
+        pretrained_weights_path=f"checkpoints/best_checkpoint_reload_new_arch.pt",
+    )
 
     # # final eval
     # epsilon = 0.0
@@ -285,12 +291,12 @@ if __name__ == "__main__":
     #     ppo=False,
     # )
 
-    run_policy(
-        f"checkpoints/best_checkpoint_reload_new_arch.pt",
-        num_games=50,
-        epsilon=0.01,
-        experiment_name=f"runs/run_bc_policy_0.01",
-        ppo=False,
-    )
+    # run_policy(
+    #     f"checkpoints/best_checkpoint_reload_new_arch.pt",
+    #     num_games=50,
+    #     epsilon=0.01,
+    #     experiment_name=f"runs/run_bc_policy_0.01",
+    #     ppo=False,
+    # )
 
     # # train_dqn_policy()
