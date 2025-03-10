@@ -2,27 +2,22 @@ import logging
 import os
 import random
 
-import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import retro
 import torch
 import torch.nn as nn
 from stable_baselines3 import PPO
-from stable_baselines3.common.callbacks import EvalCallback, CheckpointCallback
-from stable_baselines3.common.vec_env import SubprocVecEnv
-from torch.backends.cudnn import deterministic
-from torch.utils.tensorboard import SummaryWriter
+from stable_baselines3.common.callbacks import CheckpointCallback
 from stable_baselines3.common.monitor import Monitor
+from stable_baselines3.common.vec_env import SubprocVecEnv
+from torch.utils.tensorboard import SummaryWriter
 
-
+from final_project.code.src.wrapper import create_game_env
 import final_project.code.src.actions as actions
 import final_project.code.src.policy.dqn as dqn
-import final_project.code.src.wrapper as wrapper
 from final_project.code.src.policy.base import CNNPolicy
 from final_project.code.src.policy.dataset import (
     HumanTrajectoriesDataLoader,
-    DataTransformer,
 )
 from final_project.code.src.policy.ppo import CustomActorCriticPolicy, PPOPolicy
 from final_project.code.src.policy.trainer import ModelTrainer
@@ -44,17 +39,6 @@ def set_seed(seed):
     random.seed(seed)
     torch.backends.cudnn.deterministic = True
     torch.backends.cudnn.benchmark = False
-
-
-def create_game_env(*args, **kwargs):
-    env = retro.make(game="SuperMarioBros-Nes", *args, **kwargs)
-    # Wrap the environment to use discrete, simple action space
-    # and custom termination and reward functions
-    env = wrapper.JoypadSpace(env, actions.SIMPLE_MOVEMENT)
-    env = wrapper.CustomTerminationEnv(env)
-    env = wrapper.CustomRewardEnv(env)
-
-    return env
 
 
 def run_game(
@@ -163,17 +147,16 @@ def train_bc_policy(
 
 def train_dqn_policy():
     agent = dqn.DQNAgent(
-        state_dim_height=224,
-        state_dim_width=240,
+        state_dim=(4, 84, 84),
         action_dim=len(actions.SIMPLE_MOVEMENT),
-        buffer_capacity=10000,
+        buffer_capacity=2048,
         batch_size=32,
         gamma=0.99,
         lr=1e-4,
     )
 
     env = create_game_env(state="Level1-1")
-    dqn.train(agent, env, num_episodes=2500, log_dir="runs/dqn_experiment_new_reward")
+    dqn.train(agent, env, num_episodes=2500, log_dir="runs/dqn_base")
 
 
 def train_ppo_policy(
@@ -246,12 +229,10 @@ def main():
 
 
 if __name__ == "__main__":
+    set_seed(12345)
     # main()
 
-    # Example usage
-    set_seed(12345)
-
-    # train_dqn_policy()
+    train_dqn_policy()
 
     # train_bc_policy(
     #     human_traj_folder="human_demon",
@@ -261,16 +242,16 @@ if __name__ == "__main__":
     #     early_stopping_patience=10,
     # )
 
-    model_name = "hrl_bc_ppo_model"
-    train_ppo_policy(
-        training_steps=1000000,
-        checkpoint_freq=50000,
-        eval_freq=10000,
-        model_name=model_name,
-        n_envs=2,
-        warm_start=False,
-        pretrained_weights_path=f"checkpoints/best_checkpoint_reload_new_arch.pt",
-    )
+    # model_name = "hrl_bc_ppo_model"
+    # train_ppo_policy(
+    #     training_steps=1000000,
+    #     checkpoint_freq=50000,
+    #     eval_freq=10000,
+    #     model_name=model_name,
+    #     n_envs=2,
+    #     warm_start=False,
+    #     pretrained_weights_path=f"checkpoints/best_checkpoint_reload_new_arch.pt",
+    # )
 
     # run_policy(
     #     f"checkpoints/best_checkpoint_reload_new_arch.pt",

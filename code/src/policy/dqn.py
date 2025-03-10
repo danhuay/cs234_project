@@ -1,13 +1,14 @@
 import logging
 import random
 from collections import deque
-
+import numpy as np
 import torch.nn as nn
 import torch.optim as optim
+from gymnasium.wrappers import LazyFrames
 from torch.utils.tensorboard import SummaryWriter
 
 from final_project.code.src.policy.base import CNNPolicy
-from final_project.code.src.policy.dataset import *
+import torch
 
 logger = logging.getLogger(__name__)
 
@@ -22,9 +23,12 @@ class ReplayBuffer:
             self.fixed_episodes = demonstration
             n_fixed_episodes = len(demonstration)
             self.buffer = deque(maxlen=capacity - n_fixed_episodes)
-        self.transformer = DataTransformer()
 
     def push(self, state, action, reward, next_state, done):
+        # convert lazyframes to tensors
+        state = state.__array__()
+        next_state = next_state.__array__()
+
         # will overwrite the buffer if it is full
         self.buffer.append((state, action, reward, next_state, done))
 
@@ -33,20 +37,26 @@ class ReplayBuffer:
 
     def sample(self, batch_size):
         buffer = self.get_buffer()
-        dataset = ReplayBufferDataset(buffer)
-        dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
-        return next(iter(dataloader))
+        samples = random.choices(buffer, k=batch_size)
+        state, action, reward, next_state, done = zip(*samples)
+
+        state = torch.tensor(np.array(state), dtype=torch.float32)
+        action = torch.tensor(action, dtype=torch.long)
+        reward = torch.tensor(np.array(reward), dtype=torch.float32)
+        next_state = torch.tensor(np.array(next_state), dtype=torch.float32)
+        done = torch.tensor(np.array(done), dtype=torch.long)
+
+        return state, action, reward, next_state, done
 
     def __len__(self):
-        return len(self.buffer)
+        return len(self.get_buffer())
 
 
 # DQN Agent that ties everything together
 class DQNAgent:
     def __init__(
         self,
-        state_dim_height,
-        state_dim_width,
+        state_dim,
         action_dim,
         lr=1e-3,
         gamma=0.99,
@@ -54,20 +64,15 @@ class DQNAgent:
         batch_size=64,
         demonstration=None,
     ):
-        self.state_dim_height = state_dim_height
-        self.state_dim_width = state_dim_width
+        self.state_dim = state_dim
         self.action_dim = action_dim
         self.gamma = gamma
         self.batch_size = batch_size
 
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         # Main and target networks
-        self.policy_net = CNNPolicy(state_dim_height, state_dim_width, action_dim).to(
-            self.device
-        )
-        self.target_net = CNNPolicy(state_dim_height, state_dim_width, action_dim).to(
-            self.device
-        )
+        self.policy_net = CNNPolicy(state_dim, action_dim).to(self.device)
+        self.target_net = CNNPolicy(state_dim, action_dim).to(self.device)
         self.target_net.load_state_dict(self.policy_net.state_dict())
         self.target_net.eval()  # set target network to evaluation mode
 
@@ -80,7 +85,8 @@ class DQNAgent:
                 torch.tensor(random.randrange(self.action_dim)).to(self.device).item()
             )
         else:
-            state = self.replay_buffer.transformer.transform_state(state)
+            if type(state) == LazyFrames:
+                state = torch.tensor(state.__array__(), dtype=torch.float32)
             state = state.to(self.device)
             with torch.no_grad():
                 q_values = self.policy_net(state)
@@ -153,8 +159,8 @@ def train(
             global_step += 1
 
             # Update agent and log loss if available
-            if global_step % 50 == 0:  # roughly 1 second of game play (60fps
-                loss = agent.update(global_step)
+            loss = agent.update(global_step)
+            if loss is not None:
                 writer.add_scalar("Loss/train", loss, global_step)
 
         # Optionally update the target network every few episodes

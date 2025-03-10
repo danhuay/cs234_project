@@ -58,34 +58,6 @@ class HumanTrajectories(Dataset):
         return state, action
 
 
-class ReplayBufferDataset(Dataset):
-    def __init__(self, replay_buffer):
-        """
-        Initialize a new dataset of replay buffer data.
-
-        Args:
-            replay_buffer: list of (state, action, reward, next_state, done) tuples
-
-        Returns:
-            None
-        """
-        self.replay_buffer = replay_buffer
-        self.transformer = DataTransformer()
-
-    def __len__(self):
-        return len(self.replay_buffer)
-
-    def __getitem__(self, idx):
-        state, action, reward, next_state, done = self.replay_buffer[idx]
-        return (
-            self.transformer.transform_state(state),
-            torch.tensor(action, dtype=torch.long),
-            torch.tensor(reward, dtype=torch.float32),
-            self.transformer.transform_state(next_state),
-            torch.tensor(done, dtype=torch.long),
-        )
-
-
 class CustomSampler(Sampler):
     def __init__(self, target, downsample_class, downsample_rate=0.5):
         self.indices = []

@@ -3,13 +3,13 @@
 # actions for very simple movement
 SIMPLE_MOVEMENT = [
     ["NULL"],
-    ["A"],
+    # ["A"],
     ["RIGHT"],
     ["RIGHT", "A"],
     ["LEFT"],
-    ["LEFT", "A"],
-    ["B"],
-    ["A", "B"],
+    # ["LEFT", "A"],
+    # ["B"],
+    # ["A", "B"],
     ["RIGHT", "B"],
     ["RIGHT", "A", "B"],
 ]

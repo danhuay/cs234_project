@@ -7,7 +7,7 @@ class CNNFeatureExtractor(nn.Module):
         self,
         input_height,
         input_width,
-        in_channel=3,
+        in_channel,
         conv1_channels=16,
         conv2_channels=32,
         conv3_channels=64,
@@ -63,8 +63,7 @@ class MLPPolicy(nn.Module):
 class CNNPolicy(nn.Module):
     def __init__(
         self,
-        input_height,
-        input_width,
+        state_dim,
         action_dim,
         conv1_channels=16,
         conv2_channels=32,
@@ -75,9 +74,11 @@ class CNNPolicy(nn.Module):
         hidden_units=512,
     ):
         super().__init__()
+        in_channel, input_height, input_width = state_dim
         self.features = CNNFeatureExtractor(
             input_height,
             input_width,
+            in_channel,
             conv1_channels,
             conv2_channels,
             conv3_channels,
