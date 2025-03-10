@@ -7,6 +7,7 @@ class CNNFeatureExtractor(nn.Module):
         self,
         input_height,
         input_width,
+        in_channel=3,
         conv1_channels=16,
         conv2_channels=32,
         conv3_channels=64,
@@ -17,8 +18,9 @@ class CNNFeatureExtractor(nn.Module):
         super().__init__()
         self.input_height = input_height
         self.input_width = input_width
+        self.in_channel = in_channel
         self.features = nn.Sequential(
-            nn.Conv2d(3, conv1_channels, kernel_size, stride, padding),
+            nn.Conv2d(in_channel, conv1_channels, kernel_size, stride, padding),
             nn.ReLU(),
             nn.MaxPool2d(2, 2),
             nn.Conv2d(conv1_channels, conv2_channels, kernel_size, stride, padding),
@@ -36,7 +38,7 @@ class CNNFeatureExtractor(nn.Module):
 
     def get_output_size(self):
         dummy_input = torch.zeros(
-            1, 3, self.input_height, self.input_width
+            1, self.in_channel, self.input_height, self.input_width
         )  # (batch_size, channels, height, width)
         # If your model is on the GPU, move the dummy input there:
         dummy_input = dummy_input.to(next(self.features.parameters()).device)

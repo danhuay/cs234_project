@@ -1,6 +1,12 @@
 import os
 import pickle
+from stable_baselines3.common.evaluation import evaluate_policy
+import numpy as np
 import torch
+from stable_baselines3.common.callbacks import BaseCallback
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 def get_x_pos(info):
@@ -95,5 +101,34 @@ def load_retrained_weights_to_ppo(model, pretrained_weights_path):
     model.policy.features_extractor.load_state_dict(feature_extractor_state_dict)
     model.policy.mlp_extractor.policy_net.load_state_dict(mlp_extractor_state_dict)
     model.policy.mlp_extractor.value_net.load_state_dict(mlp_extractor_state_dict)
-    model.policy.action_net.load_state_dict(action_net_state_dict)
+    # model.policy.action_net.load_state_dict(action_net_state_dict)
     return model
+
+
+class EvaluationCallback(BaseCallback):
+    def __init__(self, eval_env, eval_freq=5000, n_eval_episodes=3, verbose=1):
+        super(EvaluationCallback, self).__init__(verbose)
+        self.eval_env = eval_env  # Separate environment for evaluation
+        self.eval_freq = eval_freq  # Frequency of evaluation
+        self.n_eval_episodes = n_eval_episodes  # Number of episodes per evaluation
+
+    def _on_step(self) -> bool:
+        if self.n_calls % self.eval_freq == 0:  # Run evaluation every eval_freq steps
+            mean_reward, std_reward = evaluate_policy(
+                self.model,
+                self.eval_env,
+                n_eval_episodes=self.n_eval_episodes,
+                return_episode_rewards=True,
+                deterministic=False,
+            )
+
+            # Log cumulative reward (per trajectory) in TensorBoard
+            self.logger.record("train/mean_episode_reward", np.mean(mean_reward))
+            self.logger.record("train/std_episode_reward", np.mean(std_reward))
+
+            if self.verbose:
+                logger.info(
+                    f"Step {self.n_calls}: Mean Episode Reward = {np.mean(mean_reward):.2f} ± {np.mean(std_reward):.2f}"
+                )
+
+        return True  # Continue training
