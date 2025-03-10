@@ -15,6 +15,7 @@ import numpy as np
 import pyglet
 from pyglet import gl
 from pyglet.window import key as keycodes
+from final_project.code.src.wrapper import create_game_env_human_demon
 
 import retro
 
@@ -221,7 +222,7 @@ class Interactive(abc.ABC):
         with open(self._traj_path, "wb") as f:
             pickle.dump(self._trajectory, f)
         print("Trajectory saved to", self._traj_path)
-        # print(self._trajectory[-1])
+        print(self._trajectory[-1])
         self._env.close()
         sys.exit(0)
 
@@ -262,8 +263,8 @@ class RetroInteractive(Interactive):
     """
 
     def __init__(self, game, state, scenario, record, traj_path="trajectory.pkl"):
-        env = retro.make(
-            game=game,
+        env = create_game_env_human_demon(
+            # game=game,
             state=state,
             scenario=scenario,
             record=record,

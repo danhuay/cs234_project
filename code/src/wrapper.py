@@ -207,6 +207,7 @@ class CustomRewardEnv(gym.Wrapper):
         super().__init__(env)
         self.last_info = dict()
         self.milestone_reached = list()
+        self.cum_reward = 0
 
     def get_game_completion(self, info):
         finishline_positions = (12.0 * 256.0) + 70.0
@@ -216,12 +217,16 @@ class CustomRewardEnv(gym.Wrapper):
 
     def reset(self, **kwargs):
         obs, info = self.env.reset(**kwargs)
+        info["cum_reward"] = 0
         # Initialize the last_score using the score from info (if available)
         self.last_info = info
+        self.cum_reward = 0
         return obs, info
 
     def step(self, action):
         obs, reward, terminated, truncated, info = self.env.step(action)
+        self.cum_reward += reward
+        info["cum_reward"] = self.cum_reward
 
         done = terminated or truncated
         new_reward = self.reward_function(reward, info, self.last_info, done)
@@ -235,7 +240,7 @@ class CustomRewardEnv(gym.Wrapper):
         current_info,
         last_info,
         done=False,
-        death_penalty=-500,  # Still penalize dying but not too extreme
+        death_penalty=-1000,  # Still penalize dying but not too extreme
         time_penalty_per_step=-0.1,  # Small penalty per step to prevent stalling
         progress_reward_weight=0.1,  # scaling x_pos
     ):
@@ -286,6 +291,24 @@ def create_game_env(*args, **kwargs):
 
     # Reduce the space to grayscale and resize
     env = SkipFrame(env, skip=4)
+    env = GrayScaleObservation(env)
+    env = ResizeObservation(env, shape=84)
+    env = FrameStack(env, num_stack=4)
+    return env
+
+
+def create_game_env_human_demon(*args, **kwargs):
+    from final_project.code.src.actions import SIMPLE_MOVEMENT
+
+    env = retro.make(game="SuperMarioBros-Nes", *args, **kwargs)
+    # Wrap the environment to use discrete, simple action space
+    # and custom termination and reward functions
+    # env = JoypadSpace(env, SIMPLE_MOVEMENT)
+    # env = CustomTerminationEnv(env)
+    env = CustomRewardEnv(env)
+
+    # Reduce the space to grayscale and resize
+    # env = SkipFrame(env, skip=4)
     env = GrayScaleObservation(env)
     env = ResizeObservation(env, shape=84)
     env = FrameStack(env, num_stack=4)

@@ -4,6 +4,7 @@ from stable_baselines3.common.evaluation import evaluate_policy
 import numpy as np
 import torch
 from stable_baselines3.common.callbacks import BaseCallback
+from final_project.code.src.actions import meaningful_actions
 import logging
 
 logger = logging.getLogger(__name__)
@@ -26,7 +27,15 @@ def get_x_pos(info):
     return x_pos
 
 
-def load_trajectories(traj_folder):
+def convert_lazyframe_to_tensor(lazyframe):
+    return torch.tensor(lazyframe.__array__(), dtype=torch.float32)
+
+
+def action_to_string(action_arr):
+    return "".join([str(x) for x in action_arr])
+
+
+def load_trajectories(traj_folder, skip_frame=4):
     """
     Load human trajectories from a folder. Union
     all trajectories into a single list.
@@ -42,6 +51,7 @@ def load_trajectories(traj_folder):
     states = list()
     actions = list()
     info = list()
+    included_actions = [action_to_string(x) for x in meaningful_actions]
 
     for file in os.listdir(traj_folder):
         if file.endswith(".pkl"):
@@ -49,9 +59,12 @@ def load_trajectories(traj_folder):
 
             with open(traj_path, "rb") as f:
                 _t = pickle.load(f)
-                states.extend([i["observation"] for i in _t])
-                actions.extend([i["action"] for i in _t])
-                info.extend([i["info"] for i in _t])
+                for n, i in enumerate(_t):
+                    if n % skip_frame == 0:
+                        if action_to_string(i["action"]) in included_actions:
+                            states.append(convert_lazyframe_to_tensor(i["observation"]))
+                            actions.append(i["action"])
+                            info.append(i["info"])
 
     assert len(states) == len(actions) == len(info)
 

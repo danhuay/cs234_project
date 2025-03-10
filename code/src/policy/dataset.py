@@ -24,7 +24,7 @@ class DataTransformer:
 
     @staticmethod
     def transform_state(state):
-        return torch.tensor(state, dtype=torch.float32).permute(2, 0, 1) / 255.0
+        raise NotImplementedError
 
     def transform_action(self, action):
         act = self.action_env.get_discrete_action_from_array(action)
@@ -53,29 +53,9 @@ class HumanTrajectories(Dataset):
         return len(self.states)
 
     def __getitem__(self, item):
-        state = self.transformer.transform_state(self.states[item])
+        state = self.states[item]
         action = self.transformer.transform_action(self.actions[item])
         return state, action
-
-
-class CustomSampler(Sampler):
-    def __init__(self, target, downsample_class, downsample_rate=0.5):
-        self.indices = []
-        for idx, label in enumerate(target):
-            if label == downsample_class:
-                # Include this sample with probability = downsample_rate
-                if torch.rand(1).item() < downsample_rate:
-                    self.indices.append(idx)
-            else:
-                self.indices.append(idx)
-
-    def __iter__(self):
-        # Sample indices with replacement
-        # For example, sample len(self.indices) elements with replacement.
-        return iter(random.choices(self.indices, k=len(self.indices)))
-
-    def __len__(self):
-        return len(self.indices)
 
 
 def split_dataloader(

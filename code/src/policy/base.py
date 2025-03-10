@@ -96,11 +96,15 @@ class CNNPolicy(nn.Module):
         features = self.features(x)
         return self.classifier(features)
 
-    def predict(self, x):
+    def predict(self, x, batch=True):
         with torch.no_grad():
             logits = self(x)
         action_t = torch.argmax(logits, dim=1)
-        return int(action_t.squeeze().detach().cpu().numpy())
+        if batch:
+            return action_t
+        else:
+            # single action
+            return int(action_t.squeeze().detach().cpu().numpy())
 
     def predict_stochastic(self, x):
         with torch.no_grad():

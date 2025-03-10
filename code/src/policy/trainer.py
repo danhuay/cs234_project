@@ -3,6 +3,7 @@ import os
 import time
 
 import torch
+from click.core import batch
 from torch.utils.tensorboard import SummaryWriter
 from final_project.code.src.policy.dataset import DataTransformer
 
@@ -21,7 +22,7 @@ class ModelTrainer:
         checkpoint_dir="checkpoints",
         checkpoint_name="best_checkpoint.pt",
         experiment_name="experiment",
-        log_dir="logs",
+        log_dir="runs",
         early_stopping_patience=10,
     ):
         self.model = model
@@ -142,14 +143,21 @@ class ModelTrainer:
             logger.info(f"Checkpoint loaded from {checkpoint_path}")
         return
 
-    def sample_action(self, observation, deterministic=True):
-        state = DataTransformer.transform_state(observation)
+    def sample_action(self, state, deterministic=True):
+        if type(state) != torch.Tensor:
+            state = torch.tensor(state.__array__(), dtype=torch.float32)
+
         state = state.to(self.device)
         if state.ndim == 3:
             state = state.unsqueeze(0)  # Now state shape becomes (1, 3, h, w)
 
+        if state.ndim == 3:
+            batch = True
+        else:
+            batch = False
+
         if deterministic:
-            action = self.model.predict(state)
+            action = self.model.predict(state, batch=batch)
         else:
             action = self.model.predict_stochastic(state)
         return action

@@ -10,6 +10,7 @@ from stable_baselines3 import PPO
 from stable_baselines3.common.callbacks import CheckpointCallback
 from stable_baselines3.common.monitor import Monitor
 from stable_baselines3.common.vec_env import SubprocVecEnv
+from torch.backends.cudnn import deterministic
 from torch.utils.tensorboard import SummaryWriter
 
 from final_project.code.src.wrapper import create_game_env
@@ -105,8 +106,7 @@ def run_policy(checkpoint_path, ppo=False, *args, **kwargs):
     else:
         policy = ModelTrainer(
             model=CNNPolicy(
-                input_height=224,
-                input_width=240,
+                state_dim=(4, 84, 84),
                 action_dim=len(actions.SIMPLE_MOVEMENT),
             ),
             train_dataloader=None,
@@ -128,9 +128,7 @@ def train_bc_policy(
         human_traj_folder, split=True, train_fraction=0.7, batch_size=32, shuffle=True
     )
 
-    model = CNNPolicy(
-        input_height=224, input_width=240, action_dim=len(actions.SIMPLE_MOVEMENT)
-    )
+    model = CNNPolicy(state_dim=(4, 84, 84), action_dim=len(actions.SIMPLE_MOVEMENT))
     trainer = ModelTrainer(
         model=model,
         train_dataloader=train_dl,
@@ -232,15 +230,25 @@ if __name__ == "__main__":
     set_seed(12345)
     # main()
 
-    train_dqn_policy()
+    # train_dqn_policy()
 
     # train_bc_policy(
     #     human_traj_folder="human_demon",
-    #     checkpoint_name=f"{model_name}.pt",
+    #     checkpoint_name=f"bc_policy.pt",
     #     num_epochs=500,
     #     eval_interval=5,
     #     early_stopping_patience=10,
+    #     log_dir="runs",
+    #     experiment_name="bc_policy",
     # )
+    run_policy(
+        f"checkpoints/bc_policy.pt",
+        num_games=50,
+        # epsilon=0,
+        experiment_name=f"runs/policy_runs/run_bc_policy_stochastic",
+        ppo=False,
+        deterministic=False,
+    )
 
     # model_name = "hrl_bc_ppo_model"
     # train_ppo_policy(
