@@ -118,6 +118,7 @@ def run_policy(checkpoint_path, ppo=False, *args, **kwargs):
 
     # run game using the trained policy
     run_game(env, action_policy=policy, *args, **kwargs)
+    env.close()
     return
 
 
@@ -143,7 +144,7 @@ def train_bc_policy(
     return
 
 
-def train_dqn_policy():
+def train_dqn_policy(*args, **kwargs):
     agent = dqn.DQNAgent(
         state_dim=(4, 84, 84),
         action_dim=len(actions.SIMPLE_MOVEMENT),
@@ -154,7 +155,8 @@ def train_dqn_policy():
     )
 
     env = create_game_env(state="Level1-1")
-    dqn.train(agent, env, num_episodes=2500, log_dir="runs/dqn_base")
+    dqn.train(agent, env, num_episodes=2500, *args, **kwargs)
+    env.close()
 
 
 def train_ppo_policy(
@@ -218,6 +220,9 @@ def train_ppo_policy(
     # Save the final model
     model.save(f"{checkpoint_dir}/final_model")
 
+    env.close()
+    eval_env.close()
+
 
 def main():
     env = create_game_env(state="Level1-1")
@@ -230,8 +235,31 @@ if __name__ == "__main__":
     set_seed(12345)
     # main()
 
-    # train_dqn_policy()
+    # ================= DQN =================
+    # train_dqn_policy(
+    #     log_dir="runs/dqn_base",
+    #     model_save_path="checkpoints/dqn_base_policy.pt",
+    # )
 
+    run_policy(
+        f"checkpoints/dqn_base_policy.pt",
+        num_games=3,
+        # epsilon=0,
+        experiment_name=f"runs/policy_runs/run_dqn_base_policy_0",
+        ppo=False,
+        deterministic=True,
+    )
+
+    run_policy(
+        f"checkpoints/dqn_base_policy.pt",
+        num_games=50,
+        # epsilon=0,
+        experiment_name=f"runs/policy_runs/run_dqn_base_policy_stochastic",
+        ppo=False,
+        deterministic=False,
+    )
+
+    # ================= BEHAVIORAL CLONING =================
     # train_bc_policy(
     #     human_traj_folder="human_demon",
     #     checkpoint_name=f"bc_policy.pt",
@@ -241,30 +269,40 @@ if __name__ == "__main__":
     #     log_dir="runs",
     #     experiment_name="bc_policy",
     # )
-    run_policy(
-        f"checkpoints/bc_policy.pt",
-        num_games=50,
-        # epsilon=0,
-        experiment_name=f"runs/policy_runs/run_bc_policy_stochastic",
-        ppo=False,
-        deterministic=False,
-    )
+    # run_policy(
+    #     f"checkpoints/bc_policy.pt",
+    #     num_games=50,
+    #     # epsilon=0,
+    #     experiment_name=f"runs/policy_runs/run_bc_policy_stochastic",
+    #     ppo=False,
+    #     deterministic=False,
+    # )
 
-    # model_name = "hrl_bc_ppo_model"
+    # ================= PPO =================
     # train_ppo_policy(
     #     training_steps=1000000,
     #     checkpoint_freq=50000,
     #     eval_freq=10000,
-    #     model_name=model_name,
+    #     model_name="ppo_policy",
     #     n_envs=2,
     #     warm_start=False,
-    #     pretrained_weights_path=f"checkpoints/best_checkpoint_reload_new_arch.pt",
+    #     pretrained_weights_path=None,
     # )
-
+    #
     # run_policy(
-    #     f"checkpoints/best_checkpoint_reload_new_arch.pt",
-    #     num_games=5,
-    #     epsilon=0.0,
-    #     experiment_name=f"runs/run_bc_policy_0.01",
-    #     ppo=False,
+    #     f"checkpoints/ppo_policy/final_model",
+    #     num_games=3,
+    #     # epsilon=0,
+    #     experiment_name=f"runs/policy_runs/run_ppo_base_policy_0",
+    #     ppo=True,
+    #     deterministic=True,
+    # )
+    #
+    # run_policy(
+    #     f"checkpoints/ppo_policy/final_model",
+    #     num_games=50,
+    #     # epsilon=0,
+    #     experiment_name=f"runs/policy_runs/run_ppo_base_policy_stochastic",
+    #     ppo=True,
+    #     deterministic=False,
     # )

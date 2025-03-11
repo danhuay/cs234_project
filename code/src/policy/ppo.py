@@ -3,6 +3,7 @@ from stable_baselines3.common.policies import ActorCriticPolicy
 from stable_baselines3.common.torch_layers import BaseFeaturesExtractor
 from final_project.code.src.policy.base import CNNFeatureExtractor, MLPPolicy
 from stable_baselines3 import PPO
+import torch
 import torch.nn as nn
 
 
@@ -12,11 +13,8 @@ class SB3CustomCNNFeatureExtractor(BaseFeaturesExtractor):
         observation_space: gym.spaces.Box,
         features_dim: int = None,
     ):
-        # Extract height and width from observation_space (assumes (channels, height, width))
-        _, input_height, input_width = observation_space.shape
-
         # Create your CNN extractor
-        cnn_extractor = CNNFeatureExtractor(input_height, input_width)
+        cnn_extractor = CNNFeatureExtractor(state_dim=observation_space.shape)
 
         # If features_dim not provided, use the output size from your CNN extractor
         if features_dim is None:
@@ -60,6 +58,9 @@ class PPOPolicy:
     def __init__(self, checkpoint_path):
         self.model = PPO.load(checkpoint_path)
 
-    def sample_action(self, state):
-        action, _states = self.model.predict(state, deterministic=False)
+    def sample_action(self, state, deterministic=False):
+        if type(state) != torch.Tensor:
+            state = state.__array__()
+
+        action, _states = self.model.predict(state, deterministic=deterministic)
         return int(action)

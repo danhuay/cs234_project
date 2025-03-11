@@ -135,6 +135,7 @@ def train(
     epsilon_start=1.0,
     epsilon_final=0.01,
     log_dir="runs/dqn_experiment",
+    model_save_path="checkpoints/dqn_model.pt",
 ):
     writer = SummaryWriter(log_dir=log_dir)
     episode_rewards = []
@@ -160,11 +161,11 @@ def train(
 
             # Update agent and log loss if available
             loss = agent.update(global_step)
-            if loss is not None:
+            if loss is not None and global_step % 1000 == 0:
                 writer.add_scalar("Loss/train", loss, global_step)
 
         # Optionally update the target network every few episodes
-        if episode % 1 == 0:
+        if episode % 5 == 0:
             agent.update_target_network()
 
         episode_rewards.append(episode_reward)
@@ -177,5 +178,5 @@ def train(
     writer.close()
 
     # Save the model
-    torch.save(agent.policy_net.state_dict(), "checkpoints/dqn_model.pt")
+    torch.save(agent.policy_net.state_dict(), model_save_path)
     return episode_rewards

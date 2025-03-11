@@ -5,9 +5,7 @@ import torch.nn as nn
 class CNNFeatureExtractor(nn.Module):
     def __init__(
         self,
-        input_height,
-        input_width,
-        in_channel,
+        state_dim,
         conv1_channels=16,
         conv2_channels=32,
         conv3_channels=64,
@@ -16,6 +14,7 @@ class CNNFeatureExtractor(nn.Module):
         padding=1,
     ):
         super().__init__()
+        in_channel, input_height, input_width = state_dim
         self.input_height = input_height
         self.input_width = input_width
         self.in_channel = in_channel
@@ -76,9 +75,7 @@ class CNNPolicy(nn.Module):
         super().__init__()
         in_channel, input_height, input_width = state_dim
         self.features = CNNFeatureExtractor(
-            input_height,
-            input_width,
-            in_channel,
+            state_dim,
             conv1_channels,
             conv2_channels,
             conv3_channels,
