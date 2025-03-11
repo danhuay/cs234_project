@@ -9,7 +9,7 @@ import torch.nn as nn
 from stable_baselines3 import PPO
 from stable_baselines3.common.callbacks import CheckpointCallback
 from stable_baselines3.common.monitor import Monitor
-from stable_baselines3.common.vec_env import SubprocVecEnv
+from stable_baselines3.common.vec_env import SubprocVecEnv, DummyVecEnv
 from torch.backends.cudnn import deterministic
 from torch.utils.tensorboard import SummaryWriter
 
@@ -193,6 +193,10 @@ def train_ppo_policy(
         model = PPO.load(f"{checkpoint_dir}/final_model")
         model.set_env(env)
     else:
+
+        def _clip_schedule(progress_remaining):
+            return 0.1 + (0.2 * (1 - progress_remaining))
+
         model = PPO(
             CustomActorCriticPolicy,
             env,
@@ -203,6 +207,11 @@ def train_ppo_policy(
             clip_range=0.02,
             ent_coef=0.01,
             policy_kwargs={"log_std_init": -2.0},  # Reduce action variance
+            # learning_rate=1e-4,  # Smaller updates
+            # clip_range=0.01,  # Constrain policy updates
+            # ent_coef=0.01,  # Reduce entropy for more stable policies
+            # gae_lambda=0.99,  # Reduce variance in advantage estimates
+            # policy_kwargs={"log_std_init": -1},  # Lower action variance
             tensorboard_log=f"runs/{model_name}",
             verbose=1,
         )
@@ -240,53 +249,61 @@ if __name__ == "__main__":
     #     log_dir="runs/dqn_base",
     #     model_save_path="checkpoints/dqn_base_policy.pt",
     # )
-
-    run_policy(
-        f"checkpoints/dqn_base_policy.pt",
-        num_games=3,
-        # epsilon=0,
-        experiment_name=f"runs/policy_runs/run_dqn_base_policy_0",
-        ppo=False,
-        deterministic=True,
-    )
-
-    run_policy(
-        f"checkpoints/dqn_base_policy.pt",
-        num_games=50,
-        # epsilon=0,
-        experiment_name=f"runs/policy_runs/run_dqn_base_policy_stochastic",
-        ppo=False,
-        deterministic=False,
-    )
-
-    # ================= BEHAVIORAL CLONING =================
-    # train_bc_policy(
-    #     human_traj_folder="human_demon",
-    #     checkpoint_name=f"bc_policy.pt",
-    #     num_epochs=500,
-    #     eval_interval=5,
-    #     early_stopping_patience=10,
-    #     log_dir="runs",
-    #     experiment_name="bc_policy",
-    # )
+    #
     # run_policy(
-    #     f"checkpoints/bc_policy.pt",
+    #     f"checkpoints/dqn_base_policy.pt",
+    #     num_games=3,
+    #     # epsilon=0,
+    #     experiment_name=f"runs/policy_runs/run_dqn_base_policy_0",
+    #     ppo=False,
+    #     deterministic=True,
+    # )
+    #
+    # run_policy(
+    #     f"checkpoints/dqn_base_policy.pt",
     #     num_games=50,
     #     # epsilon=0,
-    #     experiment_name=f"runs/policy_runs/run_bc_policy_stochastic",
+    #     experiment_name=f"runs/policy_runs/run_dqn_base_policy_stochastic",
     #     ppo=False,
     #     deterministic=False,
     # )
+
+    # ================= BEHAVIORAL CLONING =================
+    train_bc_policy(
+        human_traj_folder="human_demon",
+        checkpoint_name=f"bc_policy.pt",
+        num_epochs=500,
+        eval_interval=5,
+        early_stopping_patience=10,
+        log_dir="runs",
+        experiment_name="bc_policy",
+    )
+    run_policy(
+        f"checkpoints/bc_policy.pt",
+        num_games=3,
+        # epsilon=0,
+        experiment_name=f"runs/policy_runs/run_bc_policy_0",
+        ppo=False,
+        deterministic=True,
+    )
+    run_policy(
+        f"checkpoints/bc_policy.pt",
+        num_games=50,
+        # epsilon=0,
+        experiment_name=f"runs/policy_runs/run_bc_policy_stochastic",
+        ppo=False,
+        deterministic=False,
+    )
 
     # ================= PPO =================
     # train_ppo_policy(
     #     training_steps=1000000,
     #     checkpoint_freq=50000,
-    #     eval_freq=10000,
-    #     model_name="ppo_policy",
+    #     eval_freq=5000,
+    #     model_name="hrl_bc_ppo_policy",
     #     n_envs=2,
     #     warm_start=False,
-    #     pretrained_weights_path=None,
+    #     pretrained_weights_path="checkpoints/bc_policy.pt",
     # )
     #
     # run_policy(

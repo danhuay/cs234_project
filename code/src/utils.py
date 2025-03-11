@@ -105,21 +105,19 @@ def load_retrained_weights_to_ppo(model, pretrained_weights_path):
     pretrained_weights_path is the path to the pretrained weights
     from CNNPolicy
     """
-    (
-        feature_extractor_state_dict,
-        mlp_extractor_state_dict,
-        action_net_state_dict,
-    ) = pretrained_weights_breakdown_for_ppo(pretrained_weights_path)
+    (feature_extractor_state_dict, mlp_extractor_state_dict, action_net_state_dict) = (
+        pretrained_weights_breakdown_for_ppo(pretrained_weights_path)
+    )
 
-    model.policy.features_extractor.load_state_dict(feature_extractor_state_dict)
+    # model.policy.features_extractor.load_state_dict(feature_extractor_state_dict)
     model.policy.mlp_extractor.policy_net.load_state_dict(mlp_extractor_state_dict)
     model.policy.mlp_extractor.value_net.load_state_dict(mlp_extractor_state_dict)
-    # model.policy.action_net.load_state_dict(action_net_state_dict)
+    model.policy.action_net.load_state_dict(action_net_state_dict)
     return model
 
 
 class EvaluationCallback(BaseCallback):
-    def __init__(self, eval_env, eval_freq=5000, n_eval_episodes=3, verbose=1):
+    def __init__(self, eval_env, eval_freq=5000, n_eval_episodes=5, verbose=1):
         super(EvaluationCallback, self).__init__(verbose)
         self.eval_env = eval_env  # Separate environment for evaluation
         self.eval_freq = eval_freq  # Frequency of evaluation

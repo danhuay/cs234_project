@@ -166,6 +166,7 @@ class CustomTerminationEnv(gym.Wrapper):
 
     def reset(self, **kwargs):
         obs, info = self.env.reset(**kwargs)
+        info["is_timeout"] = False
         self.prev_x_pos = None
         self.prev_life = None
         self.no_movement_frames = 0
@@ -189,6 +190,7 @@ class CustomTerminationEnv(gym.Wrapper):
                 "Mario has stopped moving forward for too long. Terminating episode."
             )
             terminated = True
+            info["is_timeout"] = True
 
         # Terminate if Mario loses his only life
         if self.prev_life is not None:
@@ -228,19 +230,19 @@ class CustomRewardEnv(gym.Wrapper):
         self.cum_reward += reward
         info["cum_reward"] = self.cum_reward
 
-        done = terminated or truncated
-        new_reward = self.reward_function(reward, info, self.last_info, done)
+        new_reward = self.reward_function(info, self.last_info, terminated, truncated)
 
         self.last_info = info
         return obs, new_reward, terminated, truncated, info
 
     def reward_function(
         self,
-        current_reward,
         current_info,
         last_info,
-        done=False,
+        terminated,
+        truncated,
         death_penalty=-1000,  # Still penalize dying but not too extreme
+        timeout_penalty=-100,
         time_penalty_per_step=-0.1,  # Small penalty per step to prevent stalling
         progress_reward_weight=0.1,  # scaling x_pos
     ):
@@ -252,8 +254,8 @@ class CustomRewardEnv(gym.Wrapper):
         xpos_diff = curr_xpos - get_x_pos(last_info)
         current_completion_level = self.get_game_completion(current_info)
 
-        # game completion milestones (every 10% of the game)
-        milestones = [round(0.1 * x, 1) for x in range(11)]
+        # game completion milestones (every 10% of the game, staring from 20%)
+        milestones = [round(0.1 * x, 1) for x in range(2, 11)]
         milestone_reached = list(
             filter(lambda x: x <= current_completion_level, milestones)
         )
@@ -269,10 +271,12 @@ class CustomRewardEnv(gym.Wrapper):
         progress_reward = xpos_diff * progress_reward_weight
 
         # Reward function
-        if not done:
+        if not (truncated or terminated):
             new_reward = (
                 score_diff + progress_reward + time_penalty_per_step + milestone_bonus
             )
+        elif current_info.get("is_timeout", False):
+            new_reward = timeout_penalty
         else:
             new_reward = death_penalty
 

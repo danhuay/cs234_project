@@ -3,6 +3,9 @@ from stable_baselines3.common.policies import ActorCriticPolicy
 from stable_baselines3.common.torch_layers import BaseFeaturesExtractor
 from final_project.code.src.policy.base import CNNFeatureExtractor, MLPPolicy
 from stable_baselines3 import PPO
+from gymnasium.wrappers import LazyFrames
+import numpy as np
+
 import torch
 import torch.nn as nn
 
@@ -50,6 +53,12 @@ class CustomActorCriticPolicy(ActorCriticPolicy):
             activation_fn=nn.ReLU,
             **kwargs
         )
+
+    def obs_to_tensor(self, observation):
+        if isinstance(observation, LazyFrames):
+            observation = np.array(observation)
+        observation = observation.reshape((-1, *self.observation_space.shape))  # type: ignore[misc]
+        return super().obs_to_tensor(observation)
 
 
 class PPOPolicy:
