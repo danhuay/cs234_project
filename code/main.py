@@ -155,7 +155,7 @@ def train_dqn_policy(*args, **kwargs):
     )
 
     env = create_game_env(state="Level1-1")
-    dqn.train(agent, env, num_episodes=2500, *args, **kwargs)
+    dqn.train(agent, env, num_episodes=250, *args, **kwargs)
     env.close()
 
 
@@ -195,23 +195,17 @@ def train_ppo_policy(
     else:
 
         def _clip_schedule(progress_remaining):
-            return 0.1 + (0.2 * (1 - progress_remaining))
+            return 0.05 + (0.1 * (1 - progress_remaining))
 
         model = PPO(
             CustomActorCriticPolicy,
             env,
-            n_steps=2048,  # Number of steps per rollout (per environment)
+            n_steps=512,  # Number of steps per rollout (per environment)
             batch_size=32,
             n_epochs=10,  # Number of optimization epochs per rollout batch
-            learning_rate=3e-5,
-            clip_range=0.02,
+            learning_rate=1e-5,
+            clip_range=_clip_schedule,
             ent_coef=0.01,
-            policy_kwargs={"log_std_init": -2.0},  # Reduce action variance
-            # learning_rate=1e-4,  # Smaller updates
-            # clip_range=0.01,  # Constrain policy updates
-            # ent_coef=0.01,  # Reduce entropy for more stable policies
-            # gae_lambda=0.99,  # Reduce variance in advantage estimates
-            # policy_kwargs={"log_std_init": -1},  # Lower action variance
             tensorboard_log=f"runs/{model_name}",
             verbose=1,
         )
@@ -249,77 +243,53 @@ if __name__ == "__main__":
     #     log_dir="runs/dqn_base",
     #     model_save_path="checkpoints/dqn_base_policy.pt",
     # )
-    #
-    # run_policy(
-    #     f"checkpoints/dqn_base_policy.pt",
-    #     num_games=3,
-    #     # epsilon=0,
-    #     experiment_name=f"runs/policy_runs/run_dqn_base_policy_0",
-    #     ppo=False,
-    #     deterministic=True,
-    # )
-    #
-    # run_policy(
-    #     f"checkpoints/dqn_base_policy.pt",
-    #     num_games=50,
-    #     # epsilon=0,
-    #     experiment_name=f"runs/policy_runs/run_dqn_base_policy_stochastic",
-    #     ppo=False,
-    #     deterministic=False,
-    # )
 
     # ================= BEHAVIORAL CLONING =================
-    train_bc_policy(
-        human_traj_folder="human_demon",
-        checkpoint_name=f"bc_policy.pt",
-        num_epochs=500,
-        eval_interval=5,
-        early_stopping_patience=10,
-        log_dir="runs",
-        experiment_name="bc_policy",
-    )
-    run_policy(
-        f"checkpoints/bc_policy.pt",
-        num_games=3,
-        # epsilon=0,
-        experiment_name=f"runs/policy_runs/run_bc_policy_0",
-        ppo=False,
-        deterministic=True,
-    )
-    run_policy(
-        f"checkpoints/bc_policy.pt",
-        num_games=50,
-        # epsilon=0,
-        experiment_name=f"runs/policy_runs/run_bc_policy_stochastic",
-        ppo=False,
-        deterministic=False,
-    )
+    # train_bc_policy(
+    #     human_traj_folder="human_demon",
+    #     checkpoint_name=f"bc_policy.pt",
+    #     num_epochs=500,
+    #     eval_interval=5,
+    #     early_stopping_patience=10,
+    #     log_dir="runs",
+    #     experiment_name="bc_policy",
+    # )
 
     # ================= PPO =================
-    # train_ppo_policy(
-    #     training_steps=1000000,
-    #     checkpoint_freq=50000,
-    #     eval_freq=5000,
-    #     model_name="hrl_bc_ppo_policy",
-    #     n_envs=2,
-    #     warm_start=False,
-    #     pretrained_weights_path="checkpoints/bc_policy.pt",
-    # )
-    #
-    # run_policy(
-    #     f"checkpoints/ppo_policy/final_model",
-    #     num_games=3,
-    #     # epsilon=0,
-    #     experiment_name=f"runs/policy_runs/run_ppo_base_policy_0",
-    #     ppo=True,
-    #     deterministic=True,
-    # )
-    #
-    # run_policy(
-    #     f"checkpoints/ppo_policy/final_model",
-    #     num_games=50,
-    #     # epsilon=0,
-    #     experiment_name=f"runs/policy_runs/run_ppo_base_policy_stochastic",
-    #     ppo=True,
-    #     deterministic=False,
-    # )
+    train_ppo_policy(
+        training_steps=100000,
+        checkpoint_freq=10000,
+        eval_freq=5000,
+        model_name="hrl_bc_ppo_policy_ws_all_dyn_clip",
+        n_envs=2,
+        warm_start=False,
+        pretrained_weights_path="checkpoints/bc_policy.pt",
+    )
+
+    # ================= RUN POLICY =================
+    for model in [
+        # "bc_policy",
+        # "dqn_base_policy",
+        # "ppo_base_policy",
+        # "hrl_bc_ppo_policy_ws_mlp_dyn_clip",
+        # "hrl_bc_ppo_policy_ws_feat_dyn_clip",
+        "hrl_bc_ppo_policy_ws_all_dyn_clip"
+    ]:
+        if "ppo" in model:
+            run_policy(
+                f"checkpoints/{model}/final_model",
+                num_games=50,
+                # epsilon=0,
+                experiment_name=f"runs/policy_runs/run_{model}_stochastic",
+                ppo=True,
+                deterministic=False,
+            )
+        else:
+            run_policy(
+                f"checkpoints/{model}.pt",
+                num_games=50,
+                # epsilon=0,
+                experiment_name=f"runs/policy_runs/run_{model}_stochastic",
+                ppo=False,
+                deterministic=False,
+            )
