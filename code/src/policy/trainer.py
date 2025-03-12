@@ -10,6 +10,14 @@ from final_project.code.src.policy.dataset import DataTransformer
 logger = logging.getLogger(__name__)
 
 
+class DummySummaryWriter:
+    def add_scalar(self, *args, **kwargs):
+        pass
+
+    def close(self):
+        pass
+
+
 class ModelTrainer:
     def __init__(
         self,
@@ -21,7 +29,7 @@ class ModelTrainer:
         device=None,
         checkpoint_dir="checkpoints",
         checkpoint_name="best_checkpoint.pt",
-        experiment_name="experiment",
+        experiment_name=None,
         log_dir="runs",
         early_stopping_patience=10,
     ):
@@ -39,7 +47,11 @@ class ModelTrainer:
         self.checkpoint_dir = checkpoint_dir
         self.checkpoint_name = checkpoint_name
         self.log_dir = log_dir
-        self.writer = SummaryWriter(f"{log_dir}/{experiment_name}")
+        self.writer = (
+            SummaryWriter(f"{log_dir}/{experiment_name}")
+            if experiment_name
+            else DummySummaryWriter()
+        )  # not initiate if just loading model
         self.early_stopping_patience = (
             early_stopping_patience  # how many eval cycles to wait if no improvement
         )
