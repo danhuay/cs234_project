@@ -23,7 +23,7 @@
 \usepackage{booktabs}
 \usepackage{multirow}
 \usepackage{float}
-\pgfplotsset{compat=1.17}
+\pgfplotsset
 
 % ====================
 % Lengths
@@ -88,55 +88,64 @@
 \begin{column}{\colwidth}
 
   \begin{block}{Introduction}
+    % what are you trying to solve? 
+    % Reference current challenges and why your work is meaningful.
     \begin{itemize}
-        \item \textbf{Objective} what are you trying to solve? Reference current challenges and why your work is meaningful.
-        \item \textbf{Motivation} what are you trying to solve? Reference current challenges and why your work is meaningful.
+        \item \textbf{Motivation} Many environments have high-dimensional state spaces, 
+        sparse rewards, and complex dynamics, making pure exploration inefficient. 
+        Limited or costly exploration can prevent RL agents from learning usable policies.
+        \item \textbf{Objective} This project explores hybrid RL (HRL) by combining offline 
+        human demonstrations with online agent explorations to enhance game control 
+        through guided exploration.
     \end{itemize}
   \end{block}
 
   \begin{block}{Background}
-  problem setup + notation; maybe previous work
-    % \begin{itemize}
-    %   \item \textbf{BERT Model} Developed by Devlin et al., utilizes transformer architecture for contextual word relationships.
-    %   \item \textbf{Consistency Learning} One of the key areas in SSL field, stands out for its proven effectiveness across numerous benchmarks.
-    %   This approach ensures that a model produces consistent outputs for an unlabeled example, even when subjected to minor perturbations, such as the introduction of small noise.
-    %   \item \textbf{Unsupervised Data Augmentation (UDA)} Proposed by Xie et al. \cite{xie2020unsupervised}, demonstrates that effective data augmentation of unsupervised
-    %   label can significantly enhance the performance of supervised learning of NLP tasks on 
-    %   limited labeled data.
-    % \end{itemize}
+  % problem setup + notation; maybe previous work
+    \begin{itemize}
+      \item \textbf{Super Mario Bros.} The NES game 
+      Super Mario Bros has challenges including sparse rewards, precise timing 
+      for jumps, and strategy for finishing within time limits. 
+      The problem is non-Markovian, requiring temporal local structure. 
+      \item \textbf{Behavior Cloning (BC)} A supervised learning approach to learn 
+      a policy from human demonstrated $(s,a)$ pairs.
+      \item \textbf{PPO} Proximal Policy Optimization (PPO) is an RL policy 
+      gradient algorithm for training intelligent agents.
+      \item \textbf{Bootstrapping PPO with Guidance} PPO starts with a 
+      pre-trained policy or is guided by demonstrations early in training.
+    \end{itemize} 
   \end{block}
   
   \begin{block}{Methods}
-      \begin{figure}[h]%
-          \centering
-          \includegraphics[width=0.9\textwidth]{pics/architecture.png}
-          \caption{\textbf{PPO agent architecture for playing Super Mario Bros.}
-            Four downsampled gameplay frames, ${f_{t-3}, \cdots, f_t}$, are stacked to represent the current state, $s_t$, preserving local temporal dynamics. The state $s_t$ is then processed through a three-layer CNN, producing a flattened dense feature representation. The actor-critic policy shares a common hidden layer, followed by separate action and value heads.
-          }%
-          \label{fig:example}%
-      \end{figure}
-    explain your technical contributions; figures can really help understanding especially for a neural model!
-    % \textbf{Baseline} Uses frozen pre-trained BERT\textsubscript{BASE} embeddings with a single linear projection layer as task head.
+  % explain your technical contributions; figures can really 
+  % help understanding especially for a neural model!
 
-    % \textbf{Combining Sentence Embeddings} (Figure \ref{fig:example})
-    % \begin{itemize}
-    %     \item {Pooling Separate Embeddings:} Generates a joint embedding from two sentences encoded separately by BERT.
-    %     \item {Fused Sentence Embedding:} Utilizes BERT's inherent training 
-    %     with sentence pairs separated by the \texttt{[SEP]} token to encode sentence context 
-    %     similarities.
-    % \end{itemize} 
 
-    % \textbf{Training Strategies}
-    % \begin{itemize}
-    %     \item {Sequential Training:} Tasks are trained in succession 
-    %     within each epoch. Specifically, model weights are updated per batch, with three tasks 
-    %     forming a batch queue in the order of paraphrase detection, textual similarity, and 
-    %     sentiment analysis.
-    %     \item {Simultaneous Training:} Aggregates the losses for all tasks concurrently. 
-    %     Each batch comprises three different tasks of the same batch size, and losses are 
-    %     summed without weighting.
-    % \end{itemize}
-    
+  
+  {\large\textcolor{cardinalred}{Data and Environment}}\noindent\vspace{-1em}
+  \begin{itemize}
+    \item \textbf{Human Demonstration} Script to record trajectories 
+    in the same format as the RL agent, capturing controller actions 
+    and game states.
+    \item \textbf{Customized Environment}
+    \textcolor{cardinalred}{Actions}: 3 movements.
+    \textcolor{cardinalred}{Termination}: Single life and timeout terminations.
+    \textcolor{cardinalred}{Rewards}: Combination of scores, time, milestones, movement to give dense rewards.
+    \textcolor{cardinalred}{Sampling}: Sampled game states at 15fps to
+    reduce trajectory length.
+  \end{itemize}
+
+    \begin{figure}[h]%
+      \centering
+      \includegraphics[width=0.8\textwidth]{pics/architecture.png}
+      \caption{\textbf{PPO agent architecture for playing Super Mario Bros.}
+        Four downsampled gameplay frames are stacked 
+        to represent the current state $s_t$, as input to the CNN actor-critic PPO
+        networks.
+      }%
+      \label{fig:cnn}%
+  \end{figure}
+
   \end{block}
 
   % \begin{alertblock}{A highlighted block}
@@ -148,38 +157,61 @@
 
 \begin{column}{\colwidth}
 
+  % continuation of methods
+  \begin{minipage}{\textwidth}
+      {\large\textcolor{cardinalred}{Reinforcement Learning Models}}\noindent\vspace{-0.2em}
+    
+    \begin{itemize}
+
+    \item \textbf{State Representation} Grayscale and downsampled gameplay frames. 
+    State $s_t$ at time $t$ is represented by four stacked frames, 
+    ${f_{t-3}, \cdots, f_t}$, preserving local temporal dynamics (see Figure. \ref{fig:cnn}).
+    
+    \item \textbf{Policy Network Architectures} 
+    A three-layer CNN produces a 
+    dense feature representation. The PPO actor-critic shares a hidden layer, 
+    followed by separate action and value heads. The BC network combines the 
+    feature extractor with the action head. (see Figure \ref{fig:cnn})
+
+      \item \textbf{Baselines} Offline: BC policy on human data; 
+      Online: PPO and DQN with decaying $\epsilon$-greedy.
+      \item \textbf{Hybrid Reinforcement Learning (HRL)}
+      \begin{itemize}
+        \item \textbf{PPO Weights Pre-Training} (\texttt{HRL1}) Pre-train the policy 
+        network via BC on human data, then use those weights for PPO. Evaluate different parts of the 
+        actor-critic policy network transferred from BC policy (\texttt{HRL1-MLP}: action net; 
+        \texttt{HRL1-FEAT}: feature extractor; \texttt{HRL1-ALL}: all weights except value head).
+        \item \textbf{Assisted Explorations} (\texttt{HRL2}) Use a single human play 
+        trajectory to reset PPO rollouts strategically from near the winning state back 
+        to the initial state \cite{salimans2018learningmontezumasrevengesingle}. Propose 
+        an exponential decay schedule where earlier states get more rollouts (\texttt{HRL2-ER}).
+      \end{itemize}
+    \end{itemize}
+    
+  \end{minipage}
+
 
 
   \begin{block}{Experiments}
 
-        what is the task? What are the inputs and outputs to the model? What are the results? Compare against baselines; for results, a graph can say a lot more than a table of the same size!
-  
-
-    \textbf{Our highest performing model has test set overall accuracy of 0.763, 
-    0.517 on SST5, 0.839 on QQP, and 0.866 on STS separately.}
-
-
-
-    {\large
-    \begin{table}[H]
+    \begin{figure}[h]%
       \centering
-      \label{tab:baseline_ext}
-      \begin{tabular}{@{}lcccc@{}}
-        \toprule
-        \textbf{Model} & \multicolumn{1}{c}{\textbf{SST5}} & \multicolumn{1}{c}{\textbf{QQP}} & \multicolumn{1}{c}{\textbf{STS}} & \multicolumn{1}{c}{\textbf{Acc}} \\ \midrule
-        Baseline (last-layer only) & 0.309 & 0.667 & 0.209 & 0.527 \\
-        Arc1-Simple Concat & 0.479 & 0.738 & 0.369 & 0.634 \\
-        Arc1-Absolute difference & 0.510 & 0.733 & 0.532 & 0.670 \\
-        Arc1-Dot Product Attention & 0.514 & 0.737 & 0.486 & 0.665 \\
-        Arc2-Fused Sentence Embedding (BE) & 0.501 & 0.829 & 0.852 & 0.752 \\
-        BE + Linear TSA & 0.520 & \textcolor{orange}{\textbf{0.836}} & 0.861 & \textcolor{orange}{\textbf{0.762}} \\
-        BE + Linear TSA + UDA Back Translation & \textcolor{orange}{\textbf{0.520}} & 0.821 & \textcolor{orange}{\textbf{0.862}} & 0.758 \\
-        BE + Linear TSA + UDA Sentence Completion & 0.506 & 0.820 & 0.853 & 0.751 \\
-        BE + Linear TSA + UDA Random-mask Completion & 0.520 & 0.808 & 0.827 & 0.747 \\ 
-        \bottomrule
-      \end{tabular}
-    \end{table}
-    }
+      \includegraphics[width=\textwidth]{pics/cum_rewards.png}
+      \caption{\textbf{Gameplay statistics of different policies.
+      }}%
+      \label{fig:res}%
+  \end{figure}
+  
+  All online policies were trained for 250 rollouts to compare efficiency.
+  After training, each policy was evaluated as a stochastic policy.
+  We conducted 50 gameplays for each policy and compared cumulative rewards.
+  
+  From Figure \ref{fig:res}, we conclude: 
+  \textcolor{cardinalred}{1)} Behavior cloning is a strong starting point, training faster;
+  \textcolor{cardinalred}{2)} Transfer learning (\texttt{HRL1}) is effective when transferring either 
+  features or actions, but not both;
+  \textcolor{cardinalred}{3)} Assisted explorations (\texttt{HRL2}) offer no significant improvement 
+  to the mean rewards over the PPO baseline, however higher reward distributions are observed.
     
 
 
@@ -194,24 +226,54 @@
   \begin{block}{Analysis}
     \begin{figure}[H]%
       \centering
-      \subfloat[SST5 Dev Set Confusion Matrix normalized to predicted labels]
-      {{\includegraphics[width=0.3\textwidth]{pics/sst5.png} }}%
+      \subfloat[Jump over a tall pipe is the most challenging state for the level]
+      {{\includegraphics[width=0.3\textwidth]{pics/stuck pipe.png} }}%
       \hfill
-      \subfloat[QQP Dev Set Confusion Matrix normalized to predicted labels]
-      {{\includegraphics[width=0.3\textwidth]{pics/qqp.png} }}%
+      \subfloat[\texttt{HRL\_1} Policies Entropy Loss During Training]
+      {{\includegraphics[width=0.3\textwidth]{pics/hrl1_ent_loss.png} }}%
       \hfill
-      \subfloat[STS Correlation Plot, line showing best fit]
-      {{\includegraphics[width=0.3\textwidth]{pics/sts.png} }}%
-      \caption{Analysis of Dev set performance of the model
+      \subfloat[\texttt{HRL\_1} Policies Rewards During Training]
+      {{\includegraphics[width=0.3\textwidth]{pics/hrl1_eval.png} }}%
+      \caption{Understanding the performance of the policies
       }%
       \label{fig:analysis}%
     \end{figure}
-    provide some in-depth analysis of certain cases of interest, or contextualize your results within existing literature! Add some plots/examples/visualizations.
+
+
+    All policies failed to complete the level, indicating challenges in the 
+    intrinsic game mechanics and HRL algorithms.
+
+    \begin{itemize}
+      \item \textbf{Game Challenge} Level 1-1 has a tall pipe early on that 
+      traps Mario. Continuous actions are required to jump over it, which 
+      is difficult for the agent to learn. Temporal structure frames help, 
+      but action history is also crucial. BC's randomized supervised learning 
+      discards such information (see Figure \ref{fig:analysis}(a)).
+
+      \item \textbf{PPO-Weights Pre-Training} Loading either the feature 
+      extractor (\texttt{HRL1-FEAT}) or action head (\texttt{HRL1-MLP}) 
+      provides a prior for state and action distributions, aiding exploration. 
+      However, loading both leads (\texttt{HRL1-ALL}) to low entropy, causing PPO to stop exploring. 
+      Issues with covariate shift and limited demo coverage arise, as 
+      only 5 human plays with "good" states are recorded, providing little 
+      information for bad states (see Figure \ref{fig:analysis}(b)(c)).
+
+      \item \textbf{Assisted Explorations} Figure \ref{fig:res} shows that 
+      assisted explorations do not improve mean rewards significantly. Mario 
+      often terminates at the tall pipe (Figure \ref{fig:analysis}(a)). However, 
+      once Mario passes this point, higher reward distributions are observed, 
+      indicating the benefit of practicing later parts of the level without 
+      rediscovering them via random exploration.
+    \end{itemize}
+    
   \end{block}
 
   \begin{block}{Conclusion}
-    briefly draw some conclusions from the work
-    \cite{xie2020unsupervised}
+    Behavior cloning accelerates early training, and  
+    selective transfer of model components provides bootstrapping of PPO learning.  
+    Future work should enhance state representations to address game challenges,
+    and better demo data and algorithms are needed to mitigate covariate shift  
+    and limited demo coverage.
   \end{block}
 
   % \begin{block}{References}

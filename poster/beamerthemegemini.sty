@@ -8,33 +8,36 @@
 \RequirePackage{exscale}
 \RequirePackage{ragged2e}
 \RequirePackage{changepage}
-% \RequirePackage{fontspec}
+\RequirePackage{fontspec}
 \RequirePackage{calc}
 
 % ====================
 % Fonts
 % ====================
 
-% \newfontfamily\Raleway[Ligatures=TeX]{Raleway}
-% \newfontfamily\Lato[Ligatures=TeX]{Lato}
+\newfontfamily\Raleway[Ligatures=TeX]{Raleway}
+\newfontfamily\Lato[Ligatures=TeX]{Lato}
 
-% \usefonttheme{professionalfonts}
+\usefonttheme{professionalfonts}
 
-% \setsansfont{Lato}[
-%   UprightFont=*-Light,
-%   ItalicFont=*-LightItalic,
-%   BoldFont=*-Regular,
-%   BoldItalicFont=*-Italic
-% ]
+\setsansfont{Lato}[
+  UprightFont=*-Light,
+  ItalicFont=*-LightItalic,
+  BoldFont=*-Regular,
+  BoldItalicFont=*-Italic
+]
 
 \setbeamerfont{headline}{family=\Raleway}
 \setbeamerfont{headline title}{size=\Huge,series=\bfseries}
 \setbeamerfont{headline author}{size=\LARGE}
 \setbeamerfont{headline institute}{size=\large}
-\setbeamerfont{block title}{family=\Raleway,size=\LARGE,series=\bfseries}
+\setbeamerfont{block title}{family=\Raleway,size=\Large,series=\bfseries}
 \setbeamerfont{block body}{size=\large}
 \setbeamerfont{caption}{size=\normalsize}
 \setbeamerfont{footline}{family=\Raleway,size=\large}
+
+\setbeamerfont{itemize/enumerate body}{size=\large}
+\setbeamerfont{itemize/enumerate subbody}{size=\large}
 
 
 % \setbeamerfont{headline}{family=\Raleway}
@@ -185,7 +188,7 @@
 {
   \end{beamercolorbox}
   \vskip0pt
-  \vspace*{2ex}
+  \vspace*{1ex}
 }
 
 % Alert Block
