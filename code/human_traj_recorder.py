@@ -7,6 +7,8 @@ An adapter object is defined for each environment to map keyboard commands to ac
 import abc
 import argparse
 import ctypes
+import gzip
+import os
 import sys
 import time
 import pickle
@@ -99,6 +101,10 @@ class Interactive(abc.ABC):
 
         # Initialize an empty list to record trajectory transitions.
         self._trajectory = []
+        # Initialize empty state holder then can cave state files
+        self._trajectory_states = []
+        self.global_step = 0
+        self.states_saving_interval = 50
         # Save trajectory path from argument.
         self._traj_path = traj_path
 
@@ -140,6 +146,7 @@ class Interactive(abc.ABC):
             # Step the environment if an action is available.
             if not self._sync or act is not None:
                 obs, rew, terminated, truncated, _info = self._env.step(act)
+                self.global_step += 1
                 done = terminated or truncated
                 self._image = self.get_image(obs, self._env)
                 self._episode_returns += rew
@@ -159,6 +166,19 @@ class Interactive(abc.ABC):
                             "info": _info,
                         }
                     )
+
+                    if self.global_step % self.states_saving_interval == 0:
+                        current_em_state = self._env.get_wrapper_attr("em").get_state()
+                        self._trajectory_states.append(current_em_state)
+
+                        # save state files:
+                        with gzip.open(
+                            os.path.join(
+                                self._traj_path, f"state_{self.global_step:04d}.state"
+                            ),
+                            "wb",
+                        ) as f:
+                            f.write(current_em_state)
 
                 np.set_printoptions(precision=2)
                 if self._sync:
@@ -219,9 +239,11 @@ class Interactive(abc.ABC):
 
     def _on_close(self):
         # Save the recorded trajectory before closing.
-        with open(self._traj_path, "wb") as f:
+        traj_file = os.path.join(self._traj_path, f"trajectory_{time.time_ns()}.pkl")
+
+        with open(traj_file, "wb") as f:
             pickle.dump(self._trajectory, f)
-        print("Trajectory saved to", self._traj_path)
+        print("Trajectory saved to", traj_file)
         print(self._trajectory[-1])
         self._env.close()
         sys.exit(0)
@@ -310,10 +332,12 @@ def main():
     parser.add_argument("--record", default=False, nargs="?", const=True)
     parser.add_argument(
         "--traj_path",
-        default=f"human_demon/trajectory_{time.time_ns()}.pkl",
+        default=f"human_demon_w_states",
         help="Path to save the recorded trajectory",
     )
     args = parser.parse_args()
+
+    os.makedirs(args.traj_path, exist_ok=True)
 
     ia = RetroInteractive(
         game=args.game,

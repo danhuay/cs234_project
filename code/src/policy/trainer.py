@@ -6,16 +6,9 @@ import torch
 from click.core import batch
 from torch.utils.tensorboard import SummaryWriter
 from final_project.code.src.policy.dataset import DataTransformer
+from final_project.code.src.utils import DummySummaryWriter
 
 logger = logging.getLogger(__name__)
-
-
-class DummySummaryWriter:
-    def add_scalar(self, *args, **kwargs):
-        pass
-
-    def close(self):
-        pass
 
 
 class ModelTrainer:

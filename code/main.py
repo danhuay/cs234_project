@@ -1,6 +1,9 @@
+import gzip
 import logging
 import os
+import pickle
 import random
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -12,14 +15,13 @@ from stable_baselines3.common.monitor import Monitor
 from stable_baselines3.common.vec_env import SubprocVecEnv, DummyVecEnv
 from torch.backends.cudnn import deterministic
 from torch.utils.tensorboard import SummaryWriter
+from final_project.code.src.utils import DummySummaryWriter, ExpertTraj
 
-from final_project.code.src.wrapper import create_game_env
+from final_project.code.src.wrapper import create_game_env, ExpertTrajResetEnv
 import final_project.code.src.actions as actions
 import final_project.code.src.policy.dqn as dqn
 from final_project.code.src.policy.base import CNNPolicy
-from final_project.code.src.policy.dataset import (
-    HumanTrajectoriesDataLoader,
-)
+from final_project.code.src.policy.dataset import HumanTrajectoriesDataLoader
 from final_project.code.src.policy.ppo import CustomActorCriticPolicy, PPOPolicy
 from final_project.code.src.policy.trainer import ModelTrainer
 from final_project.code.src.utils import (
@@ -47,23 +49,23 @@ def run_game(
     num_games=10,
     action_policy=None,
     epsilon=0,
-    experiment_name="runs/run_game",
+    experiment_name=None,
     deterministic=True,
     *args,
     **kwargs,
 ):
-    writer = SummaryWriter(experiment_name)
+    writer = SummaryWriter(experiment_name) if experiment_name else DummySummaryWriter()
     n_game_end_rewards = list()
     n_game_end_positions = list()
-    finishline_positions = (12.0 * 256.0) + 70.0  # from the human gameplay end state
+    finishline_positions = 13.0 * 256.0  # 13 screens * 256 pixels per screen
 
     for n in range(num_games):
         logger.info(f"Starting new game {n + 1} of {num_games}")
         cum_rewards = 0
 
-        # move the first action always to the right (action 2)
+        # move the first action always to the right (action 1)
         env.reset()
-        observation, reward, terminated, truncated, info = env.step(2)
+        observation, reward, terminated, truncated, info = env.step(1)
 
         step = 0
         while not terminated or truncated:
@@ -93,7 +95,8 @@ def run_game(
     df = pd.DataFrame(
         {"cum_rewards": n_game_end_rewards, "completion": n_game_end_positions}
     )
-    df.to_csv(experiment_name + "_log.csv", index=False)
+    if experiment_name:
+        df.to_csv(experiment_name + "_log.csv", index=False)
 
     writer.close()
     return
@@ -106,8 +109,7 @@ def run_policy(checkpoint_path, ppo=False, *args, **kwargs):
     else:
         policy = ModelTrainer(
             model=CNNPolicy(
-                state_dim=(4, 84, 84),
-                action_dim=len(actions.SIMPLE_MOVEMENT),
+                state_dim=(4, 84, 84), action_dim=len(actions.SIMPLE_MOVEMENT)
             ),
             train_dataloader=None,
             dev_dataloader=None,
@@ -167,10 +169,11 @@ def train_ppo_policy(
     n_envs=2,  # Number of parallel environments
     warm_start=False,
     pretrained_weights_path=None,
+    env_args=None,
 ):
     # Create multiple environments using SubprocVecEnv for parallel processing
     env = SubprocVecEnv(
-        [lambda: create_game_env(state="Level1-1") for _ in range(n_envs)]
+        [lambda: create_game_env(state="Level1-1", **env_args) for _ in range(n_envs)]
     )
     eval_env = Monitor(create_game_env(state="Level1-1"))
 
@@ -256,15 +259,30 @@ if __name__ == "__main__":
     # )
 
     # ================= PPO =================
-    train_ppo_policy(
-        training_steps=100000,
-        checkpoint_freq=10000,
-        eval_freq=5000,
-        model_name="hrl_bc_ppo_policy_ws_all_dyn_clip",
-        n_envs=2,
-        warm_start=False,
-        pretrained_weights_path="checkpoints/bc_policy.pt",
-    )
+    # train_ppo_policy(
+    #     training_steps=512 * 200,
+    #     checkpoint_freq=512 * 10,
+    #     eval_freq=512 * 2,
+    #     model_name="hrl_exp_traj_reverse_ppo_ws_mlp_dyn_clip",
+    #     n_envs=2,
+    #     warm_start=False,
+    #     env_args={
+    #         "expert_traj": ExpertTraj("human_demon_w_states"),
+    #         "total_reset_steps": 50,  # number of episodes reset
+    #         "decay_factor": 0.9,
+    #     },
+    #     pretrained_weights_path="checkpoints/bc_policy.pt",
+    # )
+    #
+    # train_ppo_policy(
+    #     training_steps=512 * 2000,
+    #     checkpoint_freq=512 * 100,
+    #     eval_freq=512 * 20,
+    #     model_name="ppo_base_policy_2k_rollouts",
+    #     n_envs=2,
+    #     warm_start=False,
+    #     # pretrained_weights_path="checkpoints/bc_policy.pt",
+    # )
 
     # ================= RUN POLICY =================
     for model in [
@@ -273,7 +291,9 @@ if __name__ == "__main__":
         # "ppo_base_policy",
         # "hrl_bc_ppo_policy_ws_mlp_dyn_clip",
         # "hrl_bc_ppo_policy_ws_feat_dyn_clip",
-        "hrl_bc_ppo_policy_ws_all_dyn_clip"
+        # "hrl_bc_ppo_policy_ws_all_dyn_clip",
+        "hrl_exp_traj_reverse_ppo",
+        "hrl_exp_traj_reverse_ppo_ws_mlp_dyn_clip",
     ]:
         if "ppo" in model:
             run_policy(

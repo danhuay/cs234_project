@@ -1,11 +1,12 @@
 import logging
+import math
 
-import gymnasium as gym
 import numpy as np
 from gymnasium.core import ActionWrapper, Env
 import gymnasium as gym
 from gymnasium.spaces import Box
 from gymnasium.wrappers import FrameStack
+
 from final_project.code.src.utils import get_x_pos
 import retro
 import torch
@@ -167,6 +168,7 @@ class CustomTerminationEnv(gym.Wrapper):
     def reset(self, **kwargs):
         obs, info = self.env.reset(**kwargs)
         info["is_timeout"] = False
+        info["is_winning"] = False
         self.prev_x_pos = None
         self.prev_life = None
         self.no_movement_frames = 0
@@ -174,9 +176,9 @@ class CustomTerminationEnv(gym.Wrapper):
 
     def step(self, action):
         obs, reward, terminated, truncated, info = self.env.step(action)
-        x_pos = get_x_pos(info)
 
         # Check if Mario is moving forward:
+        x_pos = get_x_pos(info)
         if self.prev_x_pos is not None and x_pos <= self.prev_x_pos:
             self.no_movement_frames += 1
         else:
@@ -184,6 +186,13 @@ class CustomTerminationEnv(gym.Wrapper):
 
         self.prev_x_pos = x_pos
 
+        # check if winning (moved to the next round)
+        if info["levelLo"] > 0:
+            info["is_winning"] = True
+            terminated = True
+            logger.info("WIN! Mario has moved to the next round. Terminating episode.")
+
+        # Termination case 1: not moving forward
         # Terminate if Mario hasn't moved forward for too long
         if self.no_movement_frames >= self.max_no_movement_frames:
             logger.info(
@@ -212,7 +221,7 @@ class CustomRewardEnv(gym.Wrapper):
         self.cum_reward = 0
 
     def get_game_completion(self, info):
-        finishline_positions = (12.0 * 256.0) + 70.0
+        finishline_positions = 13.0 * 256.0
         x_pos = get_x_pos(info)
 
         return round(x_pos / finishline_positions, 2)
@@ -242,6 +251,7 @@ class CustomRewardEnv(gym.Wrapper):
         terminated,
         truncated,
         death_penalty=-1000,  # Still penalize dying but not too extreme
+        win_reward=1000,
         timeout_penalty=-100,
         time_penalty_per_step=-0.1,  # Small penalty per step to prevent stalling
         progress_reward_weight=0.1,  # scaling x_pos
@@ -275,6 +285,8 @@ class CustomRewardEnv(gym.Wrapper):
             new_reward = (
                 score_diff + progress_reward + time_penalty_per_step + milestone_bonus
             )
+        elif current_info.get("is_winning", False):
+            new_reward = win_reward
         elif current_info.get("is_timeout", False):
             new_reward = timeout_penalty
         else:
@@ -283,10 +295,70 @@ class CustomRewardEnv(gym.Wrapper):
         return new_reward
 
 
+class ExpertTrajResetEnv(gym.Wrapper):
+    def __init__(self, env, expert_traj, total_reset_steps=10, decay_factor=0.8):
+        super().__init__(env)
+        self.expert_traj = expert_traj  #  states
+        self.t = len(expert_traj) - 1  # start from the end
+        self.holding_steps_per_state = self.exponential_decay(
+            N=total_reset_steps, T=len(expert_traj), r=decay_factor
+        )
+        self.current_traj_counter = 0
+
+    @staticmethod
+    def exponential_decay(N, T, r=0.8):
+        """
+        Generate a list of T values that decay exponentially such that the sum is N.
+
+        Parameters:
+        - N: total sum we want to approximate.
+        - T: number of steps (T must be > 0).
+        - r: decay factor (0 < r < 1). Smaller r gives faster decay.
+
+        Returns:
+        - A list of length T where the t-th element is F(t) = A * r^(t-1)
+          and sum(F) is approximately N.
+        """
+        # Compute the scaling factor A so that the sum equals N.
+        A = N * (1 - r) / (1 - r**T)
+
+        # Generate the list of F(t) values.
+        values = [math.ceil(A * r ** (t - 1)) for t in range(1, T + 1)]
+        return values
+
+    def reset(self, **kwargs):
+        obs, info = self.env.reset(**kwargs)
+        if self.t >= 0:
+
+            self.env.get_wrapper_attr("em").set_state(self.expert_traj[self.t])
+            # just to get the obs and info without
+            # taking any action
+            obs, _, _, _, info = self.env.step(0)
+            self.env.get_wrapper_attr("em").set_state(self.expert_traj[self.t])
+
+            self.current_traj_counter += 1
+            if self.current_traj_counter >= self.holding_steps_per_state[self.t]:
+                self.t = max(-1, self.t - 1)
+                if self.t >= 0:
+                    logger.warning(
+                        f"Next reset will move to expert trajectory"
+                        f"{self.expert_traj.get_file_name(self.t)} for "
+                        f"{self.holding_steps_per_state[self.t]} steps."
+                    )
+                else:
+                    logger.warning(
+                        "Expert trajectory exhausted, will resume normal reset."
+                    )
+                self.current_traj_counter = 0
+
+            # take no-op action
+        return obs, info
+
+
 def create_game_env(*args, **kwargs):
     from final_project.code.src.actions import SIMPLE_MOVEMENT
 
-    env = retro.make(game="SuperMarioBros-Nes", *args, **kwargs)
+    env = retro.make(game="SuperMarioBros-Nes", state=kwargs.get("state", "Level1-1"))
     # Wrap the environment to use discrete, simple action space
     # and custom termination and reward functions
     env = JoypadSpace(env, SIMPLE_MOVEMENT)
@@ -298,6 +370,16 @@ def create_game_env(*args, **kwargs):
     env = GrayScaleObservation(env)
     env = ResizeObservation(env, shape=84)
     env = FrameStack(env, num_stack=4)
+
+    expert_traj = kwargs.get("expert_traj", None)
+    if expert_traj is not None:
+        env = ExpertTrajResetEnv(
+            env,
+            expert_traj,
+            total_reset_steps=kwargs.get("total_reset_steps", 10),
+            decay_factor=kwargs.get("decay_factor", 0.8),
+        )
+
     return env
 
 

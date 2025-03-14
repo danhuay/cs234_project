@@ -1,5 +1,8 @@
+import gzip
 import os
 import pickle
+from pathlib import Path
+
 from stable_baselines3.common.evaluation import evaluate_policy
 import numpy as np
 import torch
@@ -143,3 +146,35 @@ class EvaluationCallback(BaseCallback):
                 )
 
         return True  # Continue training
+
+
+class DummySummaryWriter:
+    def add_scalar(self, *args, **kwargs):
+        pass
+
+    def close(self):
+        pass
+
+
+class ExpertTraj:
+    def __init__(self, folder):
+        self.folder = folder
+        self.state_files = self.get_list_of_files()
+
+    def get_list_of_files(self):
+        return sorted([p for p in Path(self.folder).iterdir() if p.suffix == ".state"])
+
+    def get_file_name(self, idx):
+        return self.state_files[idx]
+
+    def __len__(self):
+        return len(self.state_files)
+
+    def __getitem__(self, idx):
+        return self.load_emulator_state(self.get_file_name(idx))
+
+    @staticmethod
+    def load_emulator_state(file):
+        with gzip.open(file, "rb") as f:
+            _em_state = f.read()
+        return _em_state
