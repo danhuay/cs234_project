@@ -1,14 +1,15 @@
 import logging
 import random
 from collections import deque
+
 import numpy as np
+import torch
 import torch.nn as nn
 import torch.optim as optim
 from gymnasium.wrappers import LazyFrames
 from torch.utils.tensorboard import SummaryWriter
 
 from final_project.code.src.policy.base import CNNPolicy
-import torch
 
 logger = logging.getLogger(__name__)
 

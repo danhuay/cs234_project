@@ -1,14 +1,15 @@
 import gzip
+import logging
 import os
 import pickle
 from pathlib import Path
 
-from stable_baselines3.common.evaluation import evaluate_policy
 import numpy as np
 import torch
 from stable_baselines3.common.callbacks import BaseCallback
+from stable_baselines3.common.evaluation import evaluate_policy
+
 from final_project.code.src.actions import meaningful_actions
-import logging
 
 logger = logging.getLogger(__name__)
 

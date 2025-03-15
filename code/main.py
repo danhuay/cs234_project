@@ -22,7 +22,11 @@ import final_project.code.src.actions as actions
 import final_project.code.src.policy.dqn as dqn
 from final_project.code.src.policy.base import CNNPolicy
 from final_project.code.src.policy.dataset import HumanTrajectoriesDataLoader
-from final_project.code.src.policy.ppo import CustomActorCriticPolicy, PPOPolicy
+from final_project.code.src.policy.ppo import (
+    CustomActorCriticPolicy,
+    PPOPolicy,
+    CustomPPO,
+)
 from final_project.code.src.policy.trainer import ModelTrainer
 from final_project.code.src.utils import (
     get_x_pos,
@@ -102,21 +106,24 @@ def run_game(
     return
 
 
+def load_trainer_policy(checkpoint_path):
+    policy = ModelTrainer(
+        model=CNNPolicy(state_dim=(4, 84, 84), action_dim=len(actions.SIMPLE_MOVEMENT)),
+        train_dataloader=None,
+        dev_dataloader=None,
+        optimizer=None,
+        criterion=None,
+    )
+    policy.load_checkpoint("checkpoints/bc_policy.pt")
+    return policy
+
+
 def run_policy(checkpoint_path, ppo=False, *args, **kwargs):
     env = create_game_env(state="Level1-1")
     if ppo:
         policy = PPOPolicy(checkpoint_path)
     else:
-        policy = ModelTrainer(
-            model=CNNPolicy(
-                state_dim=(4, 84, 84), action_dim=len(actions.SIMPLE_MOVEMENT)
-            ),
-            train_dataloader=None,
-            dev_dataloader=None,
-            optimizer=None,
-            criterion=None,
-        )
-        policy.load_checkpoint(checkpoint_path)
+        policy = load_trainer_policy(checkpoint_path)
 
     # run game using the trained policy
     run_game(env, action_policy=policy, *args, **kwargs)
@@ -170,8 +177,11 @@ def train_ppo_policy(
     warm_start=False,
     pretrained_weights_path=None,
     env_args=None,
+    ref_model=None,
+    kl_coeff=0.1,
 ):
     # Create multiple environments using SubprocVecEnv for parallel processing
+    env_args = {} if env_args is None else env_args
     env = SubprocVecEnv(
         [lambda: create_game_env(state="Level1-1", **env_args) for _ in range(n_envs)]
     )
@@ -200,17 +210,19 @@ def train_ppo_policy(
         def _clip_schedule(progress_remaining):
             return 0.05 + (0.1 * (1 - progress_remaining))
 
-        model = PPO(
+        model = CustomPPO(
             CustomActorCriticPolicy,
             env,
             n_steps=512,  # Number of steps per rollout (per environment)
             batch_size=32,
             n_epochs=10,  # Number of optimization epochs per rollout batch
-            learning_rate=1e-5,
-            clip_range=_clip_schedule,
+            learning_rate=3e-5,
+            clip_range=0.02,
             ent_coef=0.01,
             tensorboard_log=f"runs/{model_name}",
             verbose=1,
+            ref_model=ref_model,
+            kl_coeff=kl_coeff,
         )
 
     if pretrained_weights_path:
@@ -259,20 +271,59 @@ if __name__ == "__main__":
     # )
 
     # ================= PPO =================
-    # train_ppo_policy(
-    #     training_steps=512 * 200,
-    #     checkpoint_freq=512 * 10,
-    #     eval_freq=512 * 2,
-    #     model_name="hrl_exp_traj_reverse_ppo_ws_mlp_dyn_clip",
-    #     n_envs=2,
-    #     warm_start=False,
-    #     env_args={
-    #         "expert_traj": ExpertTraj("human_demon_w_states"),
-    #         "total_reset_steps": 50,  # number of episodes reset
-    #         "decay_factor": 0.9,
-    #     },
-    #     pretrained_weights_path="checkpoints/bc_policy.pt",
-    # )
+    ref_model = load_trainer_policy("checkpoints/bc_policy.pt").model
+
+    train_ppo_policy(
+        training_steps=512 * 200,
+        checkpoint_freq=512 * 20,
+        eval_freq=512 * 2,
+        model_name="hrl_ppo_policy_kl_0.1_ws_mlp",
+        n_envs=2,
+        warm_start=False,
+        ref_model=ref_model,
+        kl_coeff=0.1,
+        # env_args={
+        #     "expert_traj": ExpertTraj("human_demon_w_states"),
+        #     "total_reset_steps": 50,  # number of episodes reset
+        #     "decay_factor": 0.9,
+        # },
+        pretrained_weights_path="checkpoints/bc_policy.pt",
+    )
+
+    train_ppo_policy(
+        training_steps=512 * 200,
+        checkpoint_freq=512 * 20,
+        eval_freq=512 * 2,
+        model_name="hrl_ppo_policy_kl_0.1_ws_mlp_er",
+        n_envs=2,
+        warm_start=False,
+        ref_model=ref_model,
+        kl_coeff=0.1,
+        env_args={
+            "expert_traj": ExpertTraj("human_demon_w_states"),
+            "total_reset_steps": 50,  # number of episodes reset
+            "decay_factor": 0.9,
+        },
+        pretrained_weights_path="checkpoints/bc_policy.pt",
+    )
+
+    train_ppo_policy(
+        training_steps=512 * 200,
+        checkpoint_freq=512 * 20,
+        eval_freq=512 * 2,
+        model_name="hrl_ppo_policy_kl_0.1_er",
+        n_envs=2,
+        warm_start=False,
+        ref_model=ref_model,
+        kl_coeff=0.1,
+        env_args={
+            "expert_traj": ExpertTraj("human_demon_w_states"),
+            "total_reset_steps": 50,  # number of episodes reset
+            "decay_factor": 0.9,
+        },
+        # pretrained_weights_path="checkpoints/bc_policy.pt",
+    )
+
     #
     # train_ppo_policy(
     #     training_steps=512 * 2000,
@@ -292,8 +343,12 @@ if __name__ == "__main__":
         # "hrl_bc_ppo_policy_ws_mlp_dyn_clip",
         # "hrl_bc_ppo_policy_ws_feat_dyn_clip",
         # "hrl_bc_ppo_policy_ws_all_dyn_clip",
-        "hrl_exp_traj_reverse_ppo",
-        "hrl_exp_traj_reverse_ppo_ws_mlp_dyn_clip",
+        # "hrl_exp_traj_reverse_ppo",
+        # "hrl_exp_traj_reverse_ppo_ws_mlp_dyn_clip",
+        # "hrl_ppo_policy_kl_0.1",
+        "hrl_ppo_policy_kl_0.1_ws_mlp",
+        "hrl_ppo_policy_kl_0.1_ws_mlp_er",
+        "hrl_ppo_policy_kl_0.1_er",
     ]:
         if "ppo" in model:
             run_policy(

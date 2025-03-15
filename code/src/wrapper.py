@@ -1,17 +1,16 @@
 import logging
 import math
 
-import numpy as np
-from gymnasium.core import ActionWrapper, Env
 import gymnasium as gym
-from gymnasium.spaces import Box
-from gymnasium.wrappers import FrameStack
-
-from final_project.code.src.utils import get_x_pos
+import numpy as np
 import retro
 import torch
+from gymnasium.core import ActionWrapper, Env
+from gymnasium.spaces import Box
+from gymnasium.wrappers import FrameStack
 from torchvision import transforms as T
 
+from final_project.code.src.utils import get_x_pos
 
 logger = logging.getLogger(__name__)
 
@@ -384,8 +383,6 @@ def create_game_env(*args, **kwargs):
 
 
 def create_game_env_human_demon(*args, **kwargs):
-    from final_project.code.src.actions import SIMPLE_MOVEMENT
-
     env = retro.make(game="SuperMarioBros-Nes", *args, **kwargs)
     # Wrap the environment to use discrete, simple action space
     # and custom termination and reward functions

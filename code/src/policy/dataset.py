@@ -5,13 +5,11 @@ from torch.utils.data import (
     Dataset,
     DataLoader,
     random_split,
-    Sampler,
 )
 
 from final_project.code.src.actions import SIMPLE_MOVEMENT
 from final_project.code.src.utils import load_trajectories
 from final_project.code.src.wrapper import JoypadSpace
-import random
 
 logger = logging.getLogger(__name__)
 
