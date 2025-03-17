@@ -153,6 +153,9 @@ class DummySummaryWriter:
     def add_scalar(self, *args, **kwargs):
         pass
 
+    def add_figure(self, *args, **kwargs):
+        pass
+
     def close(self):
         pass
 

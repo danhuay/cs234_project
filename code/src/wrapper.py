@@ -251,8 +251,8 @@ class CustomRewardEnv(gym.Wrapper):
         truncated,
         death_penalty=-1000,  # Still penalize dying but not too extreme
         win_reward=1000,
-        timeout_penalty=-100,
-        time_penalty_per_step=-0.1,  # Small penalty per step to prevent stalling
+        timeout_penalty=-1000,
+        time_penalty_per_second=-1,  # Small penalty per step to prevent stalling
         progress_reward_weight=0.1,  # scaling x_pos
     ):
         """Modified reward function for better learning."""
@@ -261,6 +261,7 @@ class CustomRewardEnv(gym.Wrapper):
         score_diff = current_info.get("score", 0) - last_info.get("score", 0)
         curr_xpos = get_x_pos(current_info)
         xpos_diff = curr_xpos - get_x_pos(last_info)
+        time_diff = current_info.get("time", 400) - last_info.get("time", 400)
         current_completion_level = self.get_game_completion(current_info)
 
         # game completion milestones (every 10% of the game, staring from 20%)
@@ -276,13 +277,13 @@ class CustomRewardEnv(gym.Wrapper):
 
         self.milestone_reached = milestone_reached
 
-        # Encourage moving right (progress reward) if left then negative
-        progress_reward = xpos_diff * progress_reward_weight
-
         # Reward function
         if not (truncated or terminated):
             new_reward = (
-                score_diff + progress_reward + time_penalty_per_step + milestone_bonus
+                score_diff
+                + xpos_diff * progress_reward_weight
+                + time_penalty_per_second * time_diff
+                + milestone_bonus
             )
         elif current_info.get("is_winning", False):
             new_reward = win_reward
