@@ -136,6 +136,14 @@ learning from BC, KL divergence-based regularization, and assisted exploration
 strategies in a complex retro game environment.
 
 \section{Related Work}
+
+Bootstrapping RL agents from demonstrations or imitation learning 
+has shown significant promise. Hybrid paradigms combining human 
+guidance (offline RL) and agent exploration (online RL) can 
+accelerate policy learning and achieve performance beyond 
+demonstrations \cite{hester_dqfd_2017, nair_bcrl_overcoming_2018, 
+song_hybrid_2023, ren_hybrid_2024, Coletti2023EffectivenessOW}.
+
 Behavior cloning (BC) effectively initializes reinforcement learning 
 policies using human demonstrations to tackle challenging exploration 
 problems. It often trains faster than RL agents, providing a solid 
@@ -204,10 +212,10 @@ scores, time left, and positions of Mario, can also be retrieved for each timest
 \label{sec:hd_data}
 To record human demonstrations, we implemented scripts to save gameplay 
 interactions with the environment via a game controller. 
-We recorded five gameplays by amateur players $\{\tau_{\text{HD}}^{i}\}_{i=1}^{5}$, 
+We recorded a single gameplay by amateur players $\{\tau_{\text{HD}}\}$, 
 each successfully completing Level 1-1 without losing a life.
-Each episode $i$ is 
-saved as $\tau_{\text{HD}}^{i} = \{(s_t, a_t, r_t, d_t, m_t)\}_{t=0}^{T}$, where each 
+The episode is
+saved as $\tau_{\text{HD}} = \{(s_t, a_t, r_t, d_t, m_t)\}_{t=0}^{T}$, where each 
 element represents the observation, action, reward, termination boolean, and 
 metadata.  
 Additionally, a single trajectory 
@@ -319,7 +327,7 @@ in section \ref{sec:hd_data}.
 
 \subsubsection{Proximal Policy Optimization (PPO)} 
 PPO serves as an online baseline. We extended the 
-\texttt{stable-baseline3} PPO implementation, utilizing the 
+\texttt{stable-baselines3} PPO implementation, utilizing the 
 CNN feature extractor $\mathcal{F}(s;\phi)$ and the two-head 
 MLP policy network $a, V = \mathcal{M}(\phi_s; \theta)$. 
 Parameters $\phi$ and $\theta$ are updated via gradient 
@@ -368,12 +376,12 @@ certain performance threshold.
 
 The exponential decay schedule for PPO resets works as follows: given a target 
 training iteration count $N$ and $k$ resets along the trajectory, we want the 
-$i$-th state to be reset for rollout $f(i)$ times, such that $f(i)$ follows a 
-discrete exponential distribution $f(i) \sim r^i$, and $\sum_{i=1}^{k} f(i) 
+$i$-th state to be reset for rollout $n(i)$ times, such that $n(i)$ follows a 
+discrete exponential distribution $n(i) \sim r^i$, and $\sum_{i=1}^{k} n(i) 
 \approx N$. Here, $r$ is the decay factor, where $0 < r < 1$, that smaller $r$ decays 
 faster. The PPO rollouts start from the $k$-th human state from 
-$\tau_{\text{ES}}$ (see section \ref{sec:hd_data}) $f(k)$ times, then move to 
-the $(k-1)$-th state $f(k-1)$ times, and so on, until exhausting all states in 
+$\tau_{\text{ES}}$ (see section \ref{sec:hd_data}) $n(k)$ times, then move to 
+the $(k-1)$-th state $n(k-1)$ times, and so on, until exhausting all states in 
 $\tau_{\text{ES}}$. If there are still training steps remaining, the rollouts 
 start from the initial state $s_0$.
 
@@ -414,13 +422,58 @@ over 200 iterations. We set an entropy loss coefficient of 0.01. For
 BC-constrained PPO, $\lambda=0.1$ for KL-divergence loss regularization. For 
 baseline PPO, BC-constrained PPO, and assisted exploration methods, we use 
 a learning rate of $10^{-4}$, a clip range of $0.1$. For BC-initialized 
-PPO, we use a smaller learning rate of $1\times10^{-5}$ and a linear clip 
+PPO (or any extensions involving loading pre-trained BC weights), 
+we use a smaller learning rate of $10^{-5}$ and a linear clip 
 range schedule starting from 0.05 to 0.15. This stabilizes PPO near the BC 
 policy initially and later encourages policy updates to potentially surpass 
 demonstration strategies. For assisted explorations, we have $k=43$ resets 
 along demonstration $\tau_{\text{ES}}$, with $r=0.9$ and $N=100$.
+Other hyperparameter are kept the same as \texttt{stable-baselines3} default values.
+
+\subsection{Evaluations}
+Each policy is evaluated as a stochastic policy, where the action 
+at state $s_t$ is sampled from a categorical distribution based on 
+predicted logits. Each policy plays level 1-1 fifty times, starting 
+with the \texttt{RIGHT} action to prevent stalling. We measure 
+cumulative rewards and game completion percentage, defined as the 
+termination $x$ position divided by the full canvas length. Both 
+the mean and distribution of rewards and completion percentages 
+are analyzed to compare the performance of each policy.
+Given that all PPO-based policies are trained for a fixed 200 iterations,
+the performance of each policy can serve as a proxy for evaluating the
+efficacy of each method.
+
 
 \subsection{Baselines}
+
+We compare the performance of two baseline policies over 50 gameplays 
+using mean cumulative rewards ($\mu_R$) and mean game completion 
+percentage ($\mu_C$). Table \ref{tab:baseline} summarizes the gameplay 
+statistics. Two-sample t-tests show that for $\mu_R$, $p=0.07$, and 
+for $\mu_C$, $p=0.04$. These results suggest statistical significance 
+at the 10\% level, indicating that BC performs better than PPO, despite 
+BC's training time being only 0.3\% of PPO's. This highlights the 
+inefficiency of PPO in complex game environments and the effectiveness 
+of BC, even when trained on a single human demonstration trajectory only. 
+However, neither policy completes the game. Observations reveal common 
+failures in avoiding enemies (Goombas), indicating that the current 
+state representation and model architecture may lack the complexity 
+needed to predict enemy movements and avoid them effectively.
+
+
+\begin{table}[htbp]
+      \centering
+      \resizebox{\columnwidth}{!}{%
+      \begin{tabular}{@{}cccccc@{}}
+      \toprule
+      Experiment & $\mu_{R}$ & $\sigma_R$ & $\mu_{C}$ & $\sigma_{C}$ & Train Time (s) \\ \midrule
+      BC        & -648.3 & 368.5 & 22.4\% & 13.6\% & 14 \\
+      PPO       & -757.3 & 197.8 & 18.0\% & 5.9\%  & 4,464 \\ \bottomrule
+      \end{tabular}%
+      }
+      \caption{Performance of baseline policies}
+      \label{tab:baseline}
+\end{table}
 
 
 \clearpage
