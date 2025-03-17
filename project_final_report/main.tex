@@ -330,19 +330,31 @@ In this section, we present experimental results for the aforementioned
 approaches. All experiments are trained on a single Nvidia GeForce RTX 4070 Ti 
 SUPER 16GB GPU.
 
-\subsection{Baselines}
-All $(s_t, a_t)$ 
-pairs are split into \texttt{train} and \texttt{dev} sets in a 7:3 ratio. 
+\subsection{Experimental Details}
+
+\textbf{Behavior Cloning} All $(s_t, a_t)$ 
+pairs from human demonstration $\tau_{\text{HD}}$ are split into \texttt{train} and \texttt{dev} sets in a 7:3 ratio. 
 With a batch size of 32 and cross-entropy loss, the full network 
 $\pi(\mathcal{F}(s; \phi);\theta)$ is trained for 500 epochs using 
 AdamW optimizer with a learning rate of $10^{-4}$. Early termination 
 occurs after 50 epochs based on \texttt{dev} data accuracy.
 
-In each iteration, the agent will rollout for 512 steps,
-update the networks for 10 epochs with batch size 32, for a total 200 iterations.
-Here we use hyperparameters of learning rate
-$3\times10^{-5}$, clip range of 0.02, and entropy loss
-coefficient of 0.01.
+\textbf{PPO and HRL Extensions} In each iteration, the agent rolls out for 
+512 steps and updates the networks for 10 epochs with a batch size of 32, 
+over 200 iterations. We set an entropy loss coefficient of 0.01. For 
+BC-constrained PPO, $\lambda=0.1$ for KL-divergence loss regularization. For 
+baseline PPO, BC-constrained PPO, and assisted exploration methods, we use 
+a learning rate of $3\times10^{-5}$, a clip range of 0.02. For BC-initialized 
+PPO, we use a smaller learning rate of $1\times10^{-5}$ and a linear clip 
+range schedule starting from 0.05 to 0.15. This stabilizes PPO near the BC 
+policy initially and later encourages policy updates to potentially surpass 
+demonstration strategies. For assisted explorations, we have $k=43$ resets 
+along demonstration $\tau_{\text{ES}}$, with $r=0.9$ and $N=100$.
+
+\subsection{Baselines}
+
+
+
 
 \begin{figure}[htbp]
       \centering
