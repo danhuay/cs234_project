@@ -140,13 +140,19 @@ is the change in the $x$-axis position $\Delta x$ moved by Mario. In-game metada
 scores, time left, and positions of Mario, can also be retrieved for each timestep $t$.
 
 \subsection{Human Demonstration Data}
+\label{sec:hd_data}
 To record human demonstrations, we implemented scripts to save gameplay 
-interactions with the environment via a game controller. Each episode $i$ is 
-saved as $\tau_{hd}^{i} = \{(s_t, a_t, r_t, d_t, m_t)\}_{t=0}^{T}$, where each 
+interactions with the environment via a game controller. 
+We recorded five gameplays by amateur players $\{\tau_{\text{HD}}^{i}\}_{i=1}^{5}$, 
+each successfully completing Level 1-1 without losing a life.
+Each episode $i$ is 
+saved as $\tau_{\text{HD}}^{i} = \{(s_t, a_t, r_t, d_t, m_t)\}_{t=0}^{T}$, where each 
 element represents the observation, action, reward, termination boolean, and 
-metadata. We recorded five gameplays by amateur players, each successfully 
-completing Level 1-1 without losing a life. Additionally, a single trajectory 
-of game emulator states is saved every 50 steps, used for resetting RL agents 
+metadata.  
+Additionally, a single trajectory 
+of game emulator states is saved every 50 steps, 
+$\tau_{\text{ES}} = \{ s_t \mid t \in \{ 50k \mid k\in \mathbb{N}, 50k \leq T \} \}$,
+used for resetting RL agents 
 to start from a state along the human demonstrated trajectory.
 
 \subsection{Customized Game Environement}
@@ -186,76 +192,157 @@ penalties for timeout and death terminations.
 
 \textbf{Sampling Rate}
 To ensure smooth rendering, the game runs at 60 fps. However, consecutive 
-frames exhibit minimal differences. Following \cite{pytorch_mario_rl_tutorial}, 
+frames exhibit minimal differences. Following \cite{feng2024mario}, 
 we reduced the sampling rate to 15 fps to enhance efficiency.
-
 
 
 \section{Approach}
 In this section, we describe baseline and three different hybrid reinforcement 
 learning approaches in controlling Mario for completing level 1-1.
 
-\subsection{Policy Network Archetectures}
+\subsection{Policy Training Architectures}
 
-For comparisons, all baselines and HRL approaches will leverage the same 
-architecture of a convolutional neural network $\pi(s,a;\theta)$ that maps an RGB image of 
-dimensions \(H \times W \times 3\) to a discrete action space of 10 actions. 
-The architecture consists of three convolutional layers, with 16, 32, and 64 
-hidden channels respectively. Each convolution uses a \(3 \times 3\) kernel 
-with stride $1$ and padding $1$, followed by a ReLU activation and \(2 \times 
-2\) max pooling that halves the spatial dimensions. The output feature maps 
-are flattened into a vector, then processed by a fully connected hidden layer 
-with 512 units and ReLU activation. Finally, a linear output layer projects 
-the 512-dimensional representation to 10 logits corresponding to the available 
-actions.
-All models are trained using the AdamW optimizer with default settings from 
-PyTorch, and a learning rate of $10^{-4}$ unless otherwise specified.
+\begin{figure}[htbp]
+      \centering
+      \includegraphics[width=\columnwidth]{figures/architecture.png}
+      \caption{PPO agent architecture for playing Super Mario Bros.
+      Four downsampled gameplay frames are stacked 
+      to represent the current state $s_t$, as input to the CNN actor-critic PPO
+      networks.}
+      \label{fig:arch}
+\end{figure}
+
+\textbf{State Representation}
+Due to the presence of moving enemies (\textit{e.g.}, Goombas, Koopa Troopas) 
+and power-ups, \textit{Super Mario Bros.} exhibits non-Markovian dynamics.
+As a result, incorporating temporal structure in the state representation is 
+crucial for accurately estimating enemy movements and other dynamic changes. 
+To capture these temporal dependencies, we define the state $s_t$ at time $t$ 
+as a stack of four consecutive gameplay frames, $\{ f_{t-3}, \dots, f_t \}$, 
+preserving local temporal dynamics (see Figure \ref{fig:arch}). 
+Each frame is downsampled from its original RGB representation to a 
+single-channel grayscale image and resized to $84 \times 84$ pixels.
+
+\textbf{Network Architectures}
+All baselines and HRL approaches use the same architecture 
+(Figure \ref{fig:arch}). The feature extractor is a CNN 
+$\phi_s = \mathcal{F}(s;\phi)$ that maps the stacked state 
+representation \(4 \times 84 \times 84\) to a dense feature 
+representation. The CNN has three convolutional layers with 16, 32, 
+and 64 channels, respectively. Each convolution uses a \(3 \times 3\) 
+kernel with stride 1 and padding 1, followed by ReLU activation and 
+\(2 \times 2\) max pooling, halving the spatial dimensions. 
+The PPO actor-critic policy 
+is a multi-head MLP network $a, V = \mathcal{M}(\phi_s; \theta)$ with a 
+shared fully connected hidden layer of 512 units and 
+ReLU activation, and two linear heads:
+the action net $a \sim \pi_\theta(s|a) = M_a(\phi_s;\theta_a)$,
+and the value net ${\hat V} = M_V(\phi_s;\theta_V)$.
+For BC, it matches the PPO with just action net:
+$a \sim \pi_{\text{BC}}(s|a) =
+\mathcal{M}_{\text{BC}}(\mathcal{F}(s;\phi_{\text{BC}});\theta_{\text{BC}})$.
+
 
 \subsection{Baselines}
 Here we shall establish performance of offline-only and online-only RL approaches
 as baselines to compare against future HRL approaches and human demonstration trajectories. 
 
-\subsubsection{Deep \textit{Q}-Learning (DQN)}
+\subsubsection{Behavior Cloning (BC)} 
+BC is an offline approach using supervised 
+learning to map state-action pairs from human demonstrations. We learned 
+a BC policy $\pi_{\text{BC}}(s|a) =
+\mathcal{M}_{\text{BC}}(\mathcal{F}(s;\phi_{\text{BC}});\theta_{\text{BC}})$
+using $(s,a)$ pairs from human demonstration data $\tau_{\text{HD}}$ as mentioned
+in section \ref{sec:hd_data}.
 
-Here we use the DQN architecture with a linearly decaying $\epsilon$-greedy 
-exploration as a baseline for the online RL approach through pure explorations. 
-We implemented the DQN architecture from scratch to facilitate future 
-modifications for the HRL approach DQfD.
-
-We set the DQN parameters as follows: the discount factor $\gamma=0.99$. The 
-replay buffer has a capacity of $|\mathcal{D}|=10000$, where new states 
-overwrite old states in a FIFO manner. The policy is trained for 2500 episodes, 
-with the target policy network updated after each episode.
-
-We made a minor modification to the classic DQN algorithm: instead of sampling 
-a minibatch of samples and updating the policy network $\pi(s,a;\theta)$ for 
-every $t$, we set a parameter $\omega$ that allows the agent to interact with 
-the environment for $\omega$ steps before updating $\pi(s,a;\theta)$. The 
-rationale is that in Super Mario Bros, after an action is played, especially 
-for a jump, there is a brief period during which no actions can be controlled. 
-Thus, adding such frames to the replay buffer becomes inefficient for updates 
-without meaningful new information. $\omega$ is empirically set to 50, which is 
-approximately under 1 second in a 60 fps game setting. $\epsilon$ is decayed 
-from 1 to 0.01 linearly, scaled by episodes interacted during the training 
-process.
-
-\subsubsection{Behavior Cloning (BC)}
-Behavioral cloning (BC) is an offline-only approach that uses supervised 
-learning to map state-action pairs from human demonstration trajectories. We 
-recorded five successful trajectories from amateur players, and each episode 
-$i$ is saved as $\tau_{hd}^{i} \{(s_t, a_t, r_t, d_t, m_t)\}_{t=0}^{T}$. All 
-$(s_t, a_t)$ pairs are randomly split into \texttt{train} and \texttt{dev} sets 
-in a 7:3 ratio. With a batch size of 32 and cross-entropy loss function, the 
-policy network $\pi(s,a;\theta)$ is trained for 500 epochs, with early 
-termination after 50 epochs based on \texttt{dev} data accuracy.
+\subsubsection{Proximal Policy Optimization (PPO)} 
+PPO serves as an online baseline. We extended the 
+\texttt{stable-baseline3} PPO implementation, utilizing the 
+CNN feature extractor $\mathcal{F}(s;\phi)$ and the two-head 
+MLP policy network $a, V = \mathcal{M}(\phi_s; \theta)$. 
+Parameters $\phi$ and $\theta$ are updated via gradient 
+descent per rollout iteration.
+Here we denote the policy learned by PPO as 
+$\pi_\theta(s|a) = M_a(\mathcal{F}(s;\phi);\theta_a)$.
 
 
-\section{Experiements}
+\subsection{Hybrid Reinforcement Learning (HRL)}
+We explore three HRL paradigms, leveraging pre-trained BC policies or 
+directly using human demonstration data in PPO policy learning.
+
+\subsubsection{BC-Initialized PPO}
+This approach initializes PPO explorations using pre-trained behavior 
+cloning weights. These weights provide a biased prior for state and 
+action distributions, giving the agent a reasonable initial policy 
+for exploration. 
+Instead of initializing the model with random parameters 
+$\phi_0$ and $\theta_0$, i.e., $a, V = \mathcal{M}_0(\mathcal{F}_0(s;\phi_0); 
+\theta_0)$, we warm-start the feature extractor $\phi_0 \leftarrow 
+\phi_{\text{BC}}$ and/or the policy network $\theta_0 \leftarrow 
+\theta_{\text{BC}}$ in this approach.
+
+\subsubsection{BC-Constrained PPO}
+This approach constrains the PPO policy to remain close to the pre-trained BC 
+policy by adding a KL-divergence term to the loss function:
+
+\begin{align*}
+      \mathcal{L}(\theta) 
+      &= \mathcal{L}_{\text{PPO}}(\theta) +
+      \lambda \mathbb{E}_{s \sim \mathcal{D}} \bigg[ \sum_{a} \pi_{\theta}(a | s) \log 
+      \frac{\pi_{\theta}(a | s)}{\pi_{\text{BC}, \theta_{\text{BC}}}(a | s)} \bigg],
+\end{align*}
+where $\mathcal{L}_{\text{PPO}}$ is the default PPO loss, $\lambda$ is the hyperparameter
+controlling the strength of the divergence loss.
+
+\subsubsection{Assisted Explorations}
+This approach aims to shape the exploration process using human trajectories. 
+The key idea is to reset the rollout to progressively more challenging starting 
+points for the agent, encouraging the learning process \cite{florensa2018reversecurriculumgenerationreinforcement}. 
+\cite{salimans2018learningmontezumasrevengesingle} proposed reversing the human 
+gameplay trajectory as resets to effectively encourage learning. Inspired by 
+their approach, we propose a simpler version of resets using an exponential 
+decay schedule, instead of running indefinitely until each reset reaches a 
+certain performance threshold.
+
+The exponential decay schedule for PPO resets works as follows: given a target 
+training iteration count $N$ and $k$ resets along the trajectory, we want the 
+$i$-th state to be reset for rollout $f(i)$ times, such that $f(i)$ follows a 
+discrete exponential distribution $f(i) \sim r^i$, and $\sum_{i=1}^{k} f(i) 
+\approx N$. Here, $r$ is the decay factor, where $0 < r < 1$, that smaller $r$ decays 
+faster. The PPO rollouts start from the $k$-th human state from 
+$\tau_{\text{ES}}$ (see section \ref{sec:hd_data}) $f(k)$ times, then move to 
+the $(k-1)$-th state $f(k-1)$ times, and so on, until exhausting all states in 
+$\tau_{\text{ES}}$. If there are still training steps remaining, the rollouts 
+start from the initial state $s_0$.
+
+The intuition behind this approach is to distribute resets strategically 
+within a given training iteration count. States closer to the winning 
+state (later states) are easier and thus get less practice than the 
+earlier, more difficult states. This schedule effectively distributes 
+learning along good state trajectories within limited training time, 
+aiding efficient explorations.
+
+
+
+
+\section{Experiments}
 In this section, we present experimental results for the aforementioned 
 approaches. All experiments are trained on a single Nvidia GeForce RTX 4070 Ti 
 SUPER 16GB GPU.
 
 \subsection{Baselines}
+All $(s_t, a_t)$ 
+pairs are split into \texttt{train} and \texttt{dev} sets in a 7:3 ratio. 
+With a batch size of 32 and cross-entropy loss, the full network 
+$\pi(\mathcal{F}(s; \phi);\theta)$ is trained for 500 epochs using 
+AdamW optimizer with a learning rate of $10^{-4}$. Early termination 
+occurs after 50 epochs based on \texttt{dev} data accuracy.
+
+In each iteration, the agent will rollout for 512 steps,
+update the networks for 10 epochs with batch size 32, for a total 200 iterations.
+Here we use hyperparameters of learning rate
+$3\times10^{-5}$, clip range of 0.02, and entropy loss
+coefficient of 0.01.
 
 \begin{figure}[htbp]
       \centering
