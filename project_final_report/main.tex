@@ -92,9 +92,21 @@ Hybrid Reinforcement Learning
 
 
 \begin{abstract}
-This document provides a basic paper template and submission guidelines.
-Abstracts must be a single paragraph, ideally between 4--6 sentences long.
-Gross violations will trigger corrections at the camera-ready phase.
+      This document provides a basic paper template and submission guidelines.
+      Abstracts must be a single paragraph, ideally between 4--6 sentences long.
+      Gross violations will trigger corrections at the camera-ready phase.
+      This document provides a basic paper template and submission guidelines.
+      Abstracts must be a single paragraph, ideally between 4--6 sentences long.
+      Gross violations will trigger corrections at the camera-ready phase.
+      This document provides a basic paper template and submission guidelines.
+      Abstracts must be a single paragraph, ideally between 4--6 sentences long.
+      Gross violations will trigger corrections at the camera-ready phase.
+      This document provides a basic paper template and submission guidelines.
+      Abstracts must be a single paragraph, ideally between 4--6 sentences long.
+      Gross violations will trigger corrections at the camera-ready phase.
+      This document provides a basic paper template and submission guidelines.
+      Abstracts must be a single paragraph, ideally between 4--6 sentences long.
+      150 words.
 \end{abstract}
 
 \section{Introduction}
@@ -103,29 +115,78 @@ Gross violations will trigger corrections at the camera-ready phase.
 % What literature have you already surveyed or will be 
 % examining to provide context and background ?
 
-Training Reinforcement Learning (RL) agents usually requires a substantial 
-amount of data and exploration to find an optimal policy. In many complex 
-games, the challenges of high-dimensional state spaces, sparse rewards, and 
-complex dynamics make training agents using pure exploration particularly 
-inefficient. Moreover, in cases where exploration opportunities are limited or 
-costly, the RL agent might fail to learn any usable policies \cite{Coletti2023EffectivenessOW}. 
-Such inefficiency not only slows down learning but also increases the risk of 
-converging to policies that are far from optimal.
+Training reinforcement learning (RL) agents typically demands substantial 
+data and exploration to achieve optimal performance. In complex environments 
+such as difficult retro arcade games, high-dimensional state spaces, sparse rewards, 
+and intricate dynamics make pure exploration particularly inefficient. 
+Moreover, situations with limited or costly exploration opportunities 
+increase the risk of converging to suboptimal policies.
 
-The research field of bootstrapping an RL agent's policy from demonstrations or 
-imitation learning shows significant promise. Various hybrid paradigms that 
-combine human guidance as offline RL and agent exploration as online RL have 
-shown they can accelerate policy learning and achieve above-demonstration 
-performance \cite{hester_dqfd_2017,nair_bcrl_overcoming_2018, song_hybrid_2023, 
-ren_hybrid_2024, Coletti2023EffectivenessOW}.
+To address these challenges, hybrid RL (HRL) paradigms leveraging demonstrations 
+and imitation learning (offline RL) combined with agent exploration (online 
+RL) have emerged as effective solutions. Specifically, Behavior Cloning (BC) 
+integrated with Proximal Policy Optimization (PPO) has shown considerable 
+potential. These hybrid methods use human demonstrations to bootstrap initial 
+policies, significantly accelerating learning, with the potential to converge 
+to policies that surpass demonstration performance levels.
 
-This project investigates how hybrid RL (HRL) can effectively enhance game control 
-through guided explorations of the agent. It aims to evaluate the potential for 
-achieving performance that surpasses the demonstration level.
+This study investigates approaches that integrate human-generated 
+demonstrations into PPO training, focusing on techniques such as transfer 
+learning from BC, KL divergence-based regularization, and assisted exploration 
+strategies in a complex retro game environment.
 
 \section{Related Work}
+Behavior cloning (BC) effectively initializes reinforcement learning 
+policies using human demonstrations to tackle challenging exploration 
+problems. It often trains faster than RL agents, providing a solid 
+starting point for explorations.
 
-\clearpage
+PPO weight initialization via transfer learning is a common strategy. A BC 
+policy network is first trained through supervised learning on human 
+demonstration data. These pre-trained weights are then used to 
+initialize PPO training. The DQfD approach by \cite{hester_dqfd_2017} 
+combines behavior cloning and DQN networks, demonstrating effective 
+training and surpassing demonstration performance. 
+\cite{laidlaw2024bridgingrltheorypractice} shows BC weights 
+initiated PPO using Atari-HEAD human datasets, indicating notable 
+efficiency gains, especially for tasks with extended exploration 
+phases and sparse rewards. \cite{Coletti2023EffectivenessOW} 
+demonstrates that PPO warm-started with expert demonstrations can 
+achieve satisfactory results in the costly exploration field of 
+controlling a fixed-wing unmanned aerial vehicle. This approach 
+significantly reduces the initial exploratory behavior required by 
+the agent, leading to substantial improvements in sample efficiency 
+and faster convergence.
+
+Another common approach is to integrate behavior cloning into PPO by 
+adding a divergence-based regularization term, typically the 
+Kullback-Leibler (KL) divergence, between the current PPO policy and 
+a reference BC policy. This regularization guides the PPO agent to 
+remain close to behaviors suggested by human demonstrations, 
+especially early in training. This method is similar to the 
+Kickstarting framework by \cite{schmitt2018kickstartingdeepreinforcementlearning}, 
+where an auxiliary distillation loss encourages the student policy to 
+follow the teacher (reference) policy initially, progressively 
+allowing divergence as training advances to surpass human performance.
+
+Assisted exploration leverages demonstrations to guide agent exploration 
+explicitly, often through curriculum strategies that reset or start episodes 
+from states sampled from human demonstrations. This approach does not require 
+a BC network but uses human trajectories to shape the exploration process, 
+enhancing learning efficiency and performance.
+The idea is to reset the agent 
+to progressively more challenging starting points, encouraging the learning 
+process \cite{florensa2018reversecurriculumgenerationreinforcement}. 
+\cite{salimans2018learningmontezumasrevengesingle} illustrate this in Atari's 
+Montezuma’s Revenge, using demonstration states to reduce exploration 
+complexity and improve learning outcomes. This form of assisted exploration 
+allows the agent to efficiently encounter and practice critical, sparse-reward 
+regions of the state space, enhancing PPO's capability to master challenging 
+tasks that conventional random exploration methods struggle with.
+
+In this study, we explore the efficacy of HRL paradigms in a retro game 
+environment.
+
 
 \section{Data and Environement}
 In this project, we leverage the \texttt{stable-retro} library to create an OpenAI Gym 
@@ -174,6 +235,7 @@ he loses it; 2) If Mario remains stuck at the same position without moving
 right for 10 seconds, the game is terminated.
 
 \textbf{Reward Function}
+\label{sec:reward}
 The game's scoring system provides sparse rewards for defeating enemies, 
 collecting coins or power-ups, and successfully completing the level.
 We modify the reward function to provide dense rewards, incorporating scores, 
@@ -193,7 +255,7 @@ penalties for timeout and death terminations.
 \textbf{Sampling Rate}
 To ensure smooth rendering, the game runs at 60 fps. However, consecutive 
 frames exhibit minimal differences. Following \cite{feng2024mario}, 
-we reduced the sampling rate to 15 fps to enhance efficiency.
+we reduced the sampling rate to 15 fps to reduce state spaces.
 
 
 \section{Approach}
@@ -236,10 +298,10 @@ The PPO actor-critic policy
 is a multi-head MLP network $a, V = \mathcal{M}(\phi_s; \theta)$ with a 
 shared fully connected hidden layer of 512 units and 
 ReLU activation, and two linear heads:
-the action net $a \sim \pi_\theta(s|a) = M_a(\phi_s;\theta_a)$,
-and the value net ${\hat V} = M_V(\phi_s;\theta_V)$.
+the action net $ \pi_\theta(a|s) = M_a(\phi_s;\theta_a)$,
+and the value net ${\hat V}(s) = M_V(\phi_s;\theta_V)$.
 For BC, it matches the PPO with just action net:
-$a \sim \pi_{\text{BC}}(s|a) =
+$ \pi_{\text{BC}}(a|s) =
 \mathcal{M}_{\text{BC}}(\mathcal{F}(s;\phi_{\text{BC}});\theta_{\text{BC}})$.
 
 
@@ -250,7 +312,7 @@ as baselines to compare against future HRL approaches and human demonstration tr
 \subsubsection{Behavior Cloning (BC)} 
 BC is an offline approach using supervised 
 learning to map state-action pairs from human demonstrations. We learned 
-a BC policy $\pi_{\text{BC}}(s|a) =
+a BC policy $\pi_{\text{BC}}(a|s) =
 \mathcal{M}_{\text{BC}}(\mathcal{F}(s;\phi_{\text{BC}});\theta_{\text{BC}})$
 using $(s,a)$ pairs from human demonstration data $\tau_{\text{HD}}$ as mentioned
 in section \ref{sec:hd_data}.
@@ -263,7 +325,7 @@ MLP policy network $a, V = \mathcal{M}(\phi_s; \theta)$.
 Parameters $\phi$ and $\theta$ are updated via gradient 
 descent per rollout iteration.
 Here we denote the policy learned by PPO as 
-$\pi_\theta(s|a) = M_a(\mathcal{F}(s;\phi);\theta_a)$.
+$\pi_\theta(a|s) = M_a(\mathcal{F}(s;\phi);\theta_a)$.
 
 
 \subsection{Hybrid Reinforcement Learning (HRL)}
@@ -289,7 +351,7 @@ policy by adding a KL-divergence term to the loss function:
       \mathcal{L}(\theta) 
       &= \mathcal{L}_{\text{PPO}}(\theta) +
       \lambda \mathbb{E}_{s \sim \mathcal{D}} \bigg[ \sum_{a} \pi_{\theta}(a | s) \log 
-      \frac{\pi_{\theta}(a | s)}{\pi_{\text{BC}, \theta_{\text{BC}}}(a | s)} \bigg],
+      \frac{\pi_{\theta}(a | s)}{\pi_{\text{BC}}(a | s)} \bigg],
 \end{align*}
 where $\mathcal{L}_{\text{PPO}}$ is the default PPO loss, $\lambda$ is the hyperparameter
 controlling the strength of the divergence loss.
@@ -327,10 +389,17 @@ aiding efficient explorations.
 
 \section{Experiments}
 In this section, we present experimental results for the aforementioned 
-approaches. All experiments are trained on a single Nvidia GeForce RTX 4070 Ti 
-SUPER 16GB GPU.
+approaches. 
 
 \subsection{Experimental Details}
+All experiments are trained on a single Nvidia GeForce RTX 4070 Ti 
+SUPER 16GB GPU. Random seed is set to 12345 for consistency.
+
+\textbf{Reward Function} We set coefficients of reward function described
+in section \ref{sec:reward} as time coefficient $\beta_t = -1$, 
+position coefficient $\beta_x = 0.1$, 
+$M=1000m$, where $m=\{0.1, 0.2, \cdots, 1\}$ is the game completion percentage.
+Timeout termination $T_t = -1000$, death termination $T_d = -1000$.
 
 \textbf{Behavior Cloning} All $(s_t, a_t)$ 
 pairs from human demonstration $\tau_{\text{HD}}$ are split into \texttt{train} and \texttt{dev} sets in a 7:3 ratio. 
@@ -344,7 +413,7 @@ occurs after 50 epochs based on \texttt{dev} data accuracy.
 over 200 iterations. We set an entropy loss coefficient of 0.01. For 
 BC-constrained PPO, $\lambda=0.1$ for KL-divergence loss regularization. For 
 baseline PPO, BC-constrained PPO, and assisted exploration methods, we use 
-a learning rate of $3\times10^{-5}$, a clip range of 0.02. For BC-initialized 
+a learning rate of $10^{-4}$, a clip range of $0.1$. For BC-initialized 
 PPO, we use a smaller learning rate of $1\times10^{-5}$ and a linear clip 
 range schedule starting from 0.05 to 0.15. This stabilizes PPO near the BC 
 policy initially and later encourages policy updates to potentially surpass 
@@ -354,84 +423,7 @@ along demonstration $\tau_{\text{ES}}$, with $r=0.9$ and $N=100$.
 \subsection{Baselines}
 
 
-
-
-\begin{figure}[htbp]
-      \centering
-      \includegraphics[width=0.8\columnwidth]{figures/cum_rewards_baseline.png}
-      \vspace{0.5cm} % adjust vertical space as needed
-      \includegraphics[width=0.8\columnwidth]{figures/completions_baseline.png}
-      \caption{Baseline policies in-game performance statistics for 50 episodes each.}
-      \label{fig:baseline_policies}
-\end{figure}
-
-DQN policy $\pi_{\text{DQN}}$ and BC policy $\pi_{\text{BC}}$ are learned 
-through the aforementioned setups. It took about 8 hours to train 
-$\pi_{\text{DQN}}$ and 1 hour for $\pi_{\text{BC}}$ on the GPU. After training, 
-we rolled out 50 game plays for each policy to evaluate their performance based 
-on cumulative rewards at terminated states and game completion percentage, 
-defined as the total x-scrolling distance compared to the end of the level. 
-
-Since the trained policies are deterministic, we introduce some stochasticity 
-by adding a small $\epsilon=0.01$ where the policy will act randomly. This evaluates 
-the robustness under perturbations, especially in complex game settings where 
-encountering enemies and obtaining power-ups can significantly change the best 
-actions to take. For all gameplays, the initial action is set to move right 
-regardless of the policies to avoid Mario being stalled.
-
-Both policies failed to complete the game level successfully.
-$\pi_{\text{BC}}$ demonstrates significantly better performance in terms of 
-cumulative rewards and game completions under the deterministic setup, despite 
-taking only 1/8 of the time to train compared to $\pi_{\text{DQN}}$ and using 
-only 5 human-demonstrated trajectories, as shown in Figure 
-\ref{fig:baseline_policies}. However, $\pi_{\text{BC}}$ suffers from greater 
-performance degradation when random perturbations are introduced. It exhibits 
-higher variance in performance in stochastic setups.
-$\pi_{\text{DQN}}$, on the other hand, is rather difficult to train. In the 
-complex game environment, though rewards are not sparse, encountering enemies 
-and power-ups makes the Markov assumptions less valid, and the pipes in the 
-game create challenges for the agent to explore states effectively. Thus, the 
-explorations are rarely sufficient to learn good $Q$ value estimations even 
-after 2500 episodes (see Appendix \ref{a2:dqn}). The trained $\pi_{\text{DQN}}$ 
-does not compare with $\pi_{\text{BC}}$ in deterministic settings but shows 
-superior stability in terms of variance when randomness is introduced, with 
-increased performance when acting stochastically. This illustrates that the 
-current exploration is sub-optimal, and when exploring guided by human 
-demonstrations, it could surpass $\pi_{\text{BC}}$ in performance.
-
-\section{Next Steps}
-Above initial results show the expected performance of baselines. The remaining 
-work of the project involves finishing the implementation of the HRL algorithms 
-and evaluating the performance of each approach.
-
-\subsection{Deep \textit{Q}-Learning from Demonstrations (DQfD)}
-
-Following the DQfD (Deep \textit{Q}-Learning from Demonstrations) framework by 
-\cite{hester_dqfd_2017}, we incorporate human demonstrations into the replay 
-buffer $\mathcal{D}$ of DQN to control explorations. This builds on the already 
-implemented DQN framework, where the loss functions and replay buffer 
-trajectories are modified to include human demonstrations.
-
-\subsection{PPO with Behavior Cloning Warm-start}
-
-Inspired by \cite{Coletti2023EffectivenessOW}, this approach leverages 
-$\pi_{\text{BC}}$ trained model weights as a warm-start, then further leverages 
-PPO for policy fine-tuning. PPO's property of 
-prohibiting significant updates to the policies ensures that explorations will 
-be around human demonstrations, with the possibility to improve and surpass 
-human performance.
-
-\subsection{Evaluations}
-We will evaluate the approaches using both quantitative and qualitative metrics. 
-Quantitatively, performance will be measured via cumulative reward, level 
-completion rate, and distance traversed per episode, plotted as learning curves 
-against training episodes or timesteps. Multiple independent runs will ensure 
-statistical significance. Sample efficiency will be analyzed by measuring 
-interactions required to reach performance thresholds and wall-clock training 
-time. Qualitatively, gameplay visualizations and trajectory overlays will 
-provide insights into behavioral strategies.
-
-
+\clearpage
 \bibliography{ref}
 \bibliographystyle{icml2018}
 
@@ -461,31 +453,6 @@ meaningful_actions = [
       [0, 0, 0, 0, 0, 0, 0, 1, 1],  # Right + A (Jump)
 ]
 \end{verbatim}
-
-\subsection{DQN Training}
-\label{a2:dqn}
-
-$\pi_{\text{DQN}}$ is rather difficult to train. In the 
-complex Super Mario Bros game environment, though rewards are not sparse, encountering enemies 
-and power-ups makes the Markov assumptions less valid, and the pipes in the 
-game create challenges for the agent to explore states effectively.
-
-As seen in Figure \ref{figa:dqn}, the loss has increased as random explorations 
-reduced. The rewards grow very slowly and drastically drop at the end. We 
-observed the policy was stuck in a reward-hacking phase where Mario moves only 
-to the left until time-out termination. This reduces the risks of getting stuck 
-at further pipes with lower rewards and encountering enemies. Such behaviors 
-might be addressed by tuning reward functions and exploring if HRL can help 
-with this situation.
-
-\begin{figure}[htbp]
-\centering
-\includegraphics[width=0.45\columnwidth]{figures/dqn_rewards.png}
-\hspace{0.5cm} % adjust horizontal space as needed
-\includegraphics[width=0.45\columnwidth]{figures/dqn_loss.png}
-\caption{DQN training loss and rewards}
-\label{figa:dqn}
-\end{figure}
 
 
 
