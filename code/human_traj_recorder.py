@@ -167,18 +167,18 @@ class Interactive(abc.ABC):
                         }
                     )
 
-                    if self.global_step % self.states_saving_interval == 0:
-                        current_em_state = self._env.get_wrapper_attr("em").get_state()
-                        self._trajectory_states.append(current_em_state)
-
-                        # save state files:
-                        with gzip.open(
-                            os.path.join(
-                                self._traj_path, f"state_{self.global_step:04d}.state"
-                            ),
-                            "wb",
-                        ) as f:
-                            f.write(current_em_state)
+                    # if self.global_step % self.states_saving_interval == 0:
+                    #     current_em_state = self._env.get_wrapper_attr("em").get_state()
+                    #     self._trajectory_states.append(current_em_state)
+                    #
+                    #     # save state files:
+                    #     with gzip.open(
+                    #         os.path.join(
+                    #             self._traj_path, f"state_{self.global_step:04d}.state"
+                    #         ),
+                    #         "wb",
+                    #     ) as f:
+                    #         f.write(current_em_state)
 
                 np.set_printoptions(precision=2)
                 if self._sync:
@@ -332,7 +332,7 @@ def main():
     parser.add_argument("--record", default=False, nargs="?", const=True)
     parser.add_argument(
         "--traj_path",
-        default=f"human_demon_w_states",
+        default=f"human_demon",
         help="Path to save the recorded trajectory",
     )
     args = parser.parse_args()

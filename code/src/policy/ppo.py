@@ -82,7 +82,7 @@ class PPOPolicy:
 
 
 class CustomPPO(PPO):
-    def __init__(self, *args, ref_model=None, kl_coeff=0.01, **kwargs):
+    def __init__(self, *args, ref_model=None, kl_coeff=None, **kwargs):
         """
         Args:
             ref_model: CNN-based reference model (PyTorch neural network)
@@ -91,7 +91,7 @@ class CustomPPO(PPO):
         """
         super().__init__(*args, **kwargs)
         self.ref_model = ref_model  # CNN Model for reference policy
-        self.kl_coeff = kl_coeff
+        self.kl_coeff = kl_coeff  # this a schedule func
 
     def compute_kl_divergence(self, rollout_data):
         """
@@ -118,6 +118,11 @@ class CustomPPO(PPO):
         self._update_learning_rate(self.policy.optimizer)
         # Compute current clip range
         clip_range = self.clip_range(self._current_progress_remaining)  # type: ignore[operator]
+
+        if self.ref_model is not None:
+            # Compute KL penalty coefficient
+            kl_coeff = self.kl_coeff(self._current_progress_remaining)
+
         # Optional: clip range for the value function
         if self.clip_range_vf is not None:
             clip_range_vf = self.clip_range_vf(self._current_progress_remaining)  # type: ignore[operator]
@@ -194,7 +199,7 @@ class CustomPPO(PPO):
                 # =================== CUSTOM PART! KL penalty ===================
                 if self.ref_model is not None:
                     kl_loss = self.compute_kl_divergence(rollout_data)
-                    loss = loss + self.kl_coeff * kl_loss
+                    loss = loss + kl_coeff * kl_loss
                 # =================== CUSTOM PART! KL penalty ===================
 
                 # Calculate approximate form of reverse KL Divergence for early stopping
@@ -250,3 +255,4 @@ class CustomPPO(PPO):
             self.logger.record("train/clip_range_vf", clip_range_vf)
         if self.ref_model is not None:
             self.logger.record("train/bc_kl_loss", kl_loss.item())
+            self.logger.record("train/bc_kl_coeff", kl_coeff)

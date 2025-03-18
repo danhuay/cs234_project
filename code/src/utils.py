@@ -104,7 +104,9 @@ def pretrained_weights_breakdown_for_ppo(pretrained_weights_path):
     return feature_extractor_state_dict, mlp_extractor_state_dict, action_net_state_dict
 
 
-def load_retrained_weights_to_ppo(model, pretrained_weights_path):
+def load_retrained_weights_to_ppo(
+    model, pretrained_weights_path, load_feat=False, load_mlp=False
+):
     """model is a PPO policy from baseline3.
     pretrained_weights_path is the path to the pretrained weights
     from CNNPolicy
@@ -113,10 +115,12 @@ def load_retrained_weights_to_ppo(model, pretrained_weights_path):
         pretrained_weights_breakdown_for_ppo(pretrained_weights_path)
     )
 
-    # model.policy.features_extractor.load_state_dict(feature_extractor_state_dict)
-    model.policy.mlp_extractor.policy_net.load_state_dict(mlp_extractor_state_dict)
-    model.policy.mlp_extractor.value_net.load_state_dict(mlp_extractor_state_dict)
-    model.policy.action_net.load_state_dict(action_net_state_dict)
+    if load_feat:
+        model.policy.features_extractor.load_state_dict(feature_extractor_state_dict)
+    if load_mlp:
+        model.policy.mlp_extractor.policy_net.load_state_dict(mlp_extractor_state_dict)
+        model.policy.mlp_extractor.value_net.load_state_dict(mlp_extractor_state_dict)
+        model.policy.action_net.load_state_dict(action_net_state_dict)
     return model
 
 
