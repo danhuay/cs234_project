@@ -361,8 +361,10 @@ policy by adding a KL-divergence term to the loss function:
       \lambda \mathbb{E}_{s \sim \mathcal{D}} \bigg[ \sum_{a} \pi_{\theta}(a | s) \log 
       \frac{\pi_{\theta}(a | s)}{\pi_{\text{BC}}(a | s)} \bigg],
 \end{align*}
-where $\mathcal{L}_{\text{PPO}}$ is the default PPO loss, $\lambda$ is the hyperparameter
-controlling the strength of the divergence loss.
+where $\mathcal{L}_{\text{PPO}}$ is the default PPO loss, and $\lambda$ is a 
+hyperparameter controlling the strength of the divergence loss. This parameter 
+is a function of training steps, allowing the penalty to be relaxed in later 
+stages of training to encourage surpassing the BC policy.
 
 \subsubsection{Assisted Explorations}
 This approach aims to shape the exploration process using human trajectories. 
@@ -419,8 +421,9 @@ occurs after 50 epochs based on \texttt{dev} data accuracy.
 \textbf{PPO and HRL Extensions} In each iteration, the agent rolls out for 
 512 steps and updates the networks for 10 epochs with a batch size of 32, 
 over 200 iterations. We set an entropy loss coefficient of 0.01. For 
-BC-constrained PPO, $\lambda=0.1$ for KL-divergence loss regularization. For 
-baseline PPO, BC-constrained PPO, and assisted exploration methods, we use 
+BC-constrained PPO, with $\lambda$ for KL-divergence loss regularization 
+starting at 0.1 and linearly decreasing to 0 by the end of training.
+For baseline PPO, BC-constrained PPO, and assisted exploration methods, we use 
 a learning rate of $10^{-4}$, a clip range of $0.1$. For BC-initialized 
 PPO (or any extensions involving loading pre-trained BC weights), 
 we use a smaller learning rate of $10^{-5}$ and a linear clip 
@@ -471,10 +474,60 @@ needed to predict enemy movements and avoid them effectively.
       PPO       & -757.3 & 197.8 & 18.0\% & 5.9\%  & 4,464 \\ \bottomrule
       \end{tabular}%
       }
-      \caption{Performance of baseline policies}
+      \caption{Performance of baseline policies.}
       \label{tab:baseline}
 \end{table}
 
+
+\subsection{BC-Initialized PPO (BCI)}
+For this paradigm, we experimented with three different policies: 
+\texttt{MLP} initializes the PPO policy with $\theta_0 \leftarrow \theta_{\text{BC}}$ 
+for the policy MLP network $\mathcal{M}(\phi_s; \theta)$ while keeping the feature 
+extractor $\mathcal{F}(s;\phi)$ randomly initialized; \texttt{FEAT} initializes the 
+feature extractor with $\phi_0 \leftarrow \phi_{\text{BC}}$ while keeping the MLP 
+policy network randomly initialized; \texttt{ALL} transfers both $\phi_0 \leftarrow 
+\phi_{\text{BC}}$ and $\theta_0 \leftarrow \theta_{\text{BC}}$.
+
+\begin{figure}[h]
+      \centering
+      \includegraphics[width=\columnwidth]{figures/cum_rewards_bci.png}
+      \caption{Performance of BC-Initialized policies vs. baseline policies.}
+      \label{fig:res_bci}
+\end{figure}
+
+Figure \ref{fig:res_bci} shows game statistics for BCI policies compared 
+with baselines. The \texttt{FEAT} policy slightly outperforms both baselines in 
+terms of reward and completion percentage distributions. As seen in 
+Figure \ref{fig:res_bci_deepdive}, the \texttt{FEAT} policy's rewards 
+are still trending upward, indicating potential for further improvement 
+with extended training. Conversely, the \texttt{MLP} and \texttt{ALL} 
+policies perform worse than the baselines, particularly \texttt{ALL}, 
+where transferring all BC weights results in a nearly deterministic 
+policy that gets stuck in suboptimal states.
+
+\begin{figure}[h]
+      \centering
+      \includegraphics[width=\columnwidth]{figures/bci-training.png}
+      \caption{BC-Initialized policies rewards and entropy over time during
+      training.}
+      \label{fig:res_bci_deepdive}
+\end{figure}
+
+These behaviors correlate strongly with the entropy of the policy's 
+actions. Figure \ref{fig:res_bci_deepdive} shows the entropy curve over 
+time. The \texttt{ALL} policy starts with low entropy, severely limiting 
+PPO exploration. This suggests the BC policy overfits to a single 
+trajectory, making it sensitive to errors in the dynamic, stochastic 
+game environment. Similarly, the \texttt{MLP} policy's strong action 
+prior leads to lower entropy during training, and the mismatch with a 
+randomized feature extractor worsens performance. In contrast, the 
+\texttt{FEAT} policy shows a gradual decrease in entropy and an increase 
+in rewards, indicating it learns better strategies with growing 
+confidence, compared to the almost random actions of the PPO baseline.
+Feature weights $\phi_{\text{BC}}$ provides a state distribution prior while 
+maintaining action randomness, allowing PPO to explore bootstrapped 
+states. With a relaxed clip range near the end of training, the 
+\texttt{FEAT} policy surpasses the BC policy.
 
 \clearpage
 \bibliography{ref}
