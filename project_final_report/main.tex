@@ -92,21 +92,21 @@ Hybrid Reinforcement Learning
 
 
 \begin{abstract}
-      This document provides a basic paper template and submission guidelines.
-      Abstracts must be a single paragraph, ideally between 4--6 sentences long.
-      Gross violations will trigger corrections at the camera-ready phase.
-      This document provides a basic paper template and submission guidelines.
-      Abstracts must be a single paragraph, ideally between 4--6 sentences long.
-      Gross violations will trigger corrections at the camera-ready phase.
-      This document provides a basic paper template and submission guidelines.
-      Abstracts must be a single paragraph, ideally between 4--6 sentences long.
-      Gross violations will trigger corrections at the camera-ready phase.
-      This document provides a basic paper template and submission guidelines.
-      Abstracts must be a single paragraph, ideally between 4--6 sentences long.
-      Gross violations will trigger corrections at the camera-ready phase.
-      This document provides a basic paper template and submission guidelines.
-      Abstracts must be a single paragraph, ideally between 4--6 sentences long.
-      150 words.
+      Training reinforcement learning (RL) agents in complex environments 
+      often requires substantial data and exploration, leading to inefficiency 
+      and suboptimal policies. This study investigates hybrid reinforcement 
+      learning (HRL) paradigms that integrate human demonstrations with agent 
+      exploration to enhance learning efficiency and performance. We explore 
+      three HRL approaches: BC-Initialized PPO, BC-Constrained PPO, and Assisted 
+      Explorations, using the NES game Super Mario Bros as a testbed. Our 
+      experiments show that initializing PPO with pre-trained behavior cloning 
+      (BC) feature extractors significantly improves performance over pure PPO. 
+      However, constraining PPO with a BC policy overfitted to limited human 
+      trajectories degrades performance due to poor state coverage. Assisted 
+      Explorations show potential but require careful scheduling to be effective. 
+      These findings highlight the benefits and challenges of leveraging human 
+      demonstrations in RL, suggesting directions for future research to improve 
+      sample efficiency and policy performance in complex environments.
 \end{abstract}
 
 \section{Introduction}
@@ -139,30 +139,27 @@ strategies in a complex retro game environment.
 
 Bootstrapping RL agents from demonstrations or imitation learning 
 has shown significant promise. Hybrid paradigms combining human 
-guidance (offline RL) and agent exploration (online RL) can 
+guidance and agent exploration can 
 accelerate policy learning and achieve performance beyond 
 demonstrations \cite{hester_dqfd_2017, nair_bcrl_overcoming_2018, 
 song_hybrid_2023, ren_hybrid_2024, Coletti2023EffectivenessOW}.
 
-Behavior cloning (BC) effectively initializes reinforcement learning 
-policies using human demonstrations to tackle challenging exploration 
-problems. It often trains faster than RL agents, providing a solid 
-starting point for explorations.
-
-PPO weight initialization via transfer learning is a common strategy. A BC 
-policy network is first trained through supervised learning on human 
-demonstration data. These pre-trained weights are then used to 
-initialize PPO training. The DQfD approach by \cite{hester_dqfd_2017} 
+Behavior Cloning (BC) is an offline learning approach that quickly learns 
+an imitation policy from human demonstrations, which can be leveraged 
+to bootstrap RL agent explorations.
+PPO weight initialization via transfer learning is a common strategy,
+where the pre-trained BC weights are used to 
+initialize PPO policy for training. The DQfD approach by \cite{hester_dqfd_2017} 
 combines behavior cloning and DQN networks, demonstrating effective 
 training and surpassing demonstration performance. 
-\cite{laidlaw2024bridgingrltheorypractice} shows BC weights 
-initiated PPO using Atari-HEAD human datasets, indicating notable 
-efficiency gains, especially for tasks with extended exploration 
-phases and sparse rewards. \cite{Coletti2023EffectivenessOW} 
+\cite{laidlaw2024bridgingrltheorypractice} demonstrates that initializing PPO 
+with BC weights trained from Atari-HEAD human datasets significantly enhances 
+efficiency, particularly in tasks requiring extensive exploration and 
+handling sparse rewards. \cite{Coletti2023EffectivenessOW}
 demonstrates that PPO warm-started with expert demonstrations can 
 achieve satisfactory results in the costly exploration field of 
 controlling a fixed-wing unmanned aerial vehicle. This approach 
-significantly reduces the initial exploratory behavior required by 
+significantly reduces the initial explorations required by 
 the agent, leading to substantial improvements in sample efficiency 
 and faster convergence.
 
@@ -192,9 +189,6 @@ allows the agent to efficiently encounter and practice critical, sparse-reward
 regions of the state space, enhancing PPO's capability to master challenging 
 tasks that conventional random exploration methods struggle with.
 
-In this study, we explore the efficacy of HRL paradigms in a retro game 
-environment.
-
 
 \section{Data and Environement}
 In this project, we leverage the \texttt{stable-retro} library to create an OpenAI Gym 
@@ -204,16 +198,16 @@ frame as a matrix $I \in \mathbb{R}^{H \times W \times 3}$, where each element t
 integer value between 0 and 255, representing the RGB channels of the frame. The action 
 of pressing 9 buttons on NES controllers is represented as a vector 
 $\mathbf{a} = (a_1, a_2, \dots, a_9) \in \{0, 1\}^9$, where each button can be toggled 
-independently, resulting in a total of 512 discrete action spaces. The default reward 
-is the change in the $x$-axis position $\Delta x$ moved by Mario. In-game metadata, including 
+independently, resulting in a total of 512 discrete action spaces. 
+In-game metadata, including 
 scores, time left, and positions of Mario, can also be retrieved for each timestep $t$.
 
 \subsection{Human Demonstration Data}
 \label{sec:hd_data}
 To record human demonstrations, we implemented scripts to save gameplay 
 interactions with the environment via a game controller. 
-We recorded a single gameplay by amateur players $\{\tau_{\text{HD}}\}$, 
-each successfully completing Level 1-1 without losing a life.
+We recorded a single gameplay by amateur players $\tau_{\text{HD}}$, 
+which successfully completes Level 1-1 without losing a life.
 The episode is
 saved as $\tau_{\text{HD}} = \{(s_t, a_t, r_t, d_t, m_t)\}_{t=0}^{T}$, where each 
 element represents the observation, action, reward, termination boolean, and 
@@ -267,7 +261,9 @@ we reduced the sampling rate to 15 fps to reduce state spaces.
 
 
 \section{Approach}
-In this section, we describe baseline and three different hybrid reinforcement 
+In this section, we describe 
+model architectures,
+baseline and three different hybrid reinforcement 
 learning approaches in controlling Mario for completing level 1-1.
 
 \subsection{Policy Training Architectures}
@@ -284,7 +280,7 @@ learning approaches in controlling Mario for completing level 1-1.
 
 \textbf{State Representation}
 Due to the presence of moving enemies (\textit{e.g.}, Goombas, Koopa Troopas) 
-and power-ups, \textit{Super Mario Bros.} exhibits non-Markovian dynamics.
+and power-ups, Super Mario Bros. exhibits non-Markovian dynamics.
 As a result, incorporating temporal structure in the state representation is 
 crucial for accurately estimating enemy movements and other dynamic changes. 
 To capture these temporal dependencies, we define the state $s_t$ at time $t$ 
@@ -346,7 +342,7 @@ cloning weights. These weights provide a biased prior for state and
 action distributions, giving the agent a reasonable initial policy 
 for exploration. 
 Instead of initializing the model with random parameters 
-$\phi_0$ and $\theta_0$, i.e., $a, V = \mathcal{M}_0(\mathcal{F}_0(s;\phi_0); 
+$\phi_0$ and $\theta_0$, \textit{i.e.}, $a, V = \mathcal{M}_0(\mathcal{F}_0(s;\phi_0); 
 \theta_0)$, we warm-start the feature extractor $\phi_0 \leftarrow 
 \phi_{\text{BC}}$ and/or the policy network $\theta_0 \leftarrow 
 \theta_{\text{BC}}$ in this approach.
@@ -413,9 +409,10 @@ $M=1000m$, where $m=\{0.1, 0.2, \cdots, 1\}$ is the game completion percentage.
 Timeout termination $T_t = -1000$, death termination $T_d = -1000$.
 
 \textbf{Behavior Cloning} All $(s_t, a_t)$ 
-pairs from human demonstration $\tau_{\text{HD}}$ are split into \texttt{train} and \texttt{dev} sets in a 7:3 ratio. 
+pairs from human demonstration $\tau_{\text{HD}}$ are split into 
+\texttt{train} and \texttt{dev} sets in a 7:3 ratio randomly. 
 With a batch size of 32 and cross-entropy loss, the full network 
-$\pi(\mathcal{F}(s; \phi);\theta)$ is trained for 500 epochs using 
+$\mathcal{M}_{\text{BC}}(\mathcal{F}(s; \phi_{\text{BC}});\theta_{\text{BC}})$ is trained for 500 epochs using 
 AdamW optimizer with a learning rate of $10^{-4}$. Early termination 
 occurs after 50 epochs based on \texttt{dev} data accuracy.
 
@@ -432,7 +429,7 @@ range schedule starting from 0.05 to 0.15. This stabilizes PPO near the BC
 policy initially and later encourages policy updates to potentially surpass 
 demonstration strategies. For assisted explorations, we have $k=43$ resets 
 along demonstration $\tau_{\text{ES}}$, with $r=0.9$ and $N=100$.
-Other hyperparameter are kept the same as \texttt{stable-baselines3} default values.
+Other hyperparameters are kept the same as \texttt{stable-baselines3} default values.
 
 \subsection{Evaluations}
 Each policy is evaluated as a stochastic policy, where the action 
@@ -518,7 +515,7 @@ These behaviors correlate strongly with the entropy of the policy's
 actions. Figure \ref{fig:res_bci_deepdive} shows the entropy curve over 
 time. The \texttt{ALL} policy starts with low entropy, severely limiting 
 PPO exploration. This suggests the BC policy overfits to a single 
-trajectory, making it sensitive to errors in the dynamic, stochastic 
+trajectory, making it sensitive to errors in the dynamic 
 game environment. Similarly, the \texttt{MLP} policy's strong action 
 prior leads to lower entropy during training, and the mismatch with a 
 randomized feature extractor worsens performance. In contrast, the 
@@ -532,6 +529,7 @@ states. With a relaxed clip range near the end of training, the
 
 
 \subsection{BC-Constrained PPO (BCC)}
+\label{sec:bcc-exp}
 
 In this paradigm, we extend \texttt{PPO} baseline policy and the BCI \texttt{FEAT}
 policy to include the KL divergence loss described in section \ref{sec:bcc}.
@@ -545,6 +543,7 @@ with BCI \texttt{FEAT} policy.
       and BC-Initialized Policies.}
       \label{fig:res_bcc}
 \end{figure}
+
 Figure \ref{fig:res_bcc} shows that the KL-divergence loss degrades the 
 performance of both policies. While the intention is to use the BC policy 
 as a "teacher" for expected behaviors, the results indicate that the 
@@ -588,7 +587,115 @@ trajectory data coverage degrades PPO performance, rather than aiding
 it in staying near optimal states.
 
 
-\clearpage
+\subsection{Assisted Explorations (AE)}
+
+We trained the \texttt{PPO} baseline and BCI \texttt{FEAT} policies 
+with resets along a reversed human trajectory, creating progressively 
+more challenging starting points for the agent.
+AE \texttt{ER-P} is comparable to the \texttt{PPO} baseline, while 
+AE \texttt{ER-F} is comparable to the BCI \texttt{FEAT} policy (\texttt{ER} is short 
+for expert resets).
+
+\begin{figure}[htbp]
+      \centering
+      \includegraphics[width=\columnwidth]{figures/cum_rewards_ae.png}
+      \caption{Performance of Assisted Explorations Policies Compared to Baseline 
+      and BC-Initialized Policies.}
+      \label{fig:res_ae}
+\end{figure}
+From Figure \ref{fig:res_ae}, we observe that AE does not significantly 
+improve performance in our experiments. The level completion percentage 
+and gameplay trajectories indicate that AE policies often fail early in 
+the game. However, once the agent surpasses early difficult states, it 
+tends to achieve higher rewards than plain PPO. This suggests that 
+exposing agents to later states can be beneficial, but the current 
+policy is undertrained. AE policies terminate prematurely compared to 
+PPO starting from the initial state, indicating they have not yet 
+mastered early states, resulting in relatively low game statistics.
+Additionally, AE policies exhibit lower entropy compared to the BCI 
+\texttt{FEAT} policy, indicating they still perform randomly without 
+learning meaningful action distributions (see Appendix Figure 
+\ref{fig:res_ae_deepdive}).
+
+The original approach by \cite{salimans2018learningmontezumasrevengesingle} 
+uses a success threshold before resetting to an earlier state, ensuring 
+the agent masters the remaining trajectory before moving to a more 
+difficult state. Our modification, using fixed training iterations 
+with exponential decay, might progress too quickly for the agent to 
+learn effectively.
+
+Although AE did not perform well in our experiments, it shows potential 
+for effectively using a single demonstration to guide the agent's 
+learning along the trajectory, rather than forcing a learned BC policy, 
+which may overfit to single good trajectory as discussed in section 
+\ref{sec:bcc-exp}.
+
+
+\subsection{Results Summary}
+
+In summary, the BCI \texttt{FEAT} policy, which initializes the feature 
+extractor with pre-trained BC weights, demonstrates the best performance 
+among all approaches. Statistical tests show significant improvements 
+($p < 0.05$) in both mean cumulative rewards and level completion 
+percentage compared to the baseline PPO.
+
+
+\begin{table}[htbp]
+      \centering
+      \resizebox{\columnwidth}{!}{%
+      \begin{tabular}{@{}cccccc@{}}
+      \toprule
+      Group & Experiment & $\mu_{R}$ & $\sigma_R$ & $\mu_{C}$ & $\sigma_{C}$                  \\ \midrule
+      Baseline & BC         & -648.3       & 368.5        & 22.4\%          & 13.6\%          \\
+      Baseline & PPO        & -757.3       & 197.8        & 18.0\%          & 5.9\%           \\
+      BCI      & MLP        & -766.4       & 266.9        & 16.8\%          & 11.0\%          \\
+      BCI      & FEAT       & \textbf{-512.2}       & 431.4        & \textbf{24.5\%}          & 12.9\%          \\
+      BCI      & ALL        & -973.5       & 0.0          & 5.6\%           & 0.0\%           \\
+      BCC      & KL-P       & -877.3       & 90.5         & 15.3\%          & 5.9\%           \\
+      BCC      & KL-F       & -517.6       & 1234.2       & 21.7\%          & 16.0\%          \\
+      AE       & ER-P       & -732.4       & 269.0        & 18.3\%          & 9.5\%           \\ 
+      AE       & ER-F       & -706.6       & 317.9        & 18.3\%          & 10.8\%          \\ \bottomrule
+      \end{tabular}%
+      }
+      \caption{Performance of all policies.}
+      \label{tab:res}
+\end{table}
+
+
+\section{Conclusion}
+
+In this study, we explored various hybrid reinforcement learning (HRL) 
+paradigms to enhance RL agent performance in complex environments. We 
+compared Behavior Cloning (BC) and Proximal Policy Optimization (PPO) 
+as baselines, alongside three HRL methods: BC-Initialized PPO (BCI), 
+BC-Constrained PPO (BCC), and Assisted Explorations (AE).
+
+Our experiments demonstrated that BC, trained on a single human 
+demonstration, outperformed the PPO baseline in gameplay statistics. 
+This highlights the inefficiency of pure PPO explorations in complex 
+environments and the effectiveness of leveraging human demonstrations. 
+PPO with feature extractor weights initialized by the BC policy 
+showed stronger performance than pure PPO, indicating that the biased 
+state distribution learned from human demonstrations is beneficial 
+for bootstrapping PPO explorations.
+
+However, the BC policy struggled to predict meaningful actions in 
+states not covered by the single human trajectory due to overfitting. 
+Such a policy becomes suboptimal as a strong action prior or when 
+used to constrain PPO through KL-divergence loss, due to coverage 
+issues of the demonstration. These constraints force the agent to 
+learn policies with low-entropy actions, which is challenging in 
+complex and non-Markovian environments. Assisted Explorations might 
+be helpful in bootstrapping explorations if agents are properly 
+trained in easier states before moving on to more difficult ones.
+
+In conclusion, leveraging human demonstrations through BC and 
+initializing PPO with pre-trained feature extractors can significantly 
+enhance RL performance in complex environments. Future work could 
+explore more adaptive strategies for assisted explorations and further 
+refine the integration of human demonstrations to improve sample 
+efficiency, states coverage, and policy performance.
+
 \bibliography{ref}
 \bibliographystyle{icml2018}
 
@@ -622,12 +729,30 @@ meaningful_actions = [
 
 \subsection{BC-Constrained PPO}
 
+Similar to observations for BCI policies, KL loss constrains the 
+entropy of the policies, leading to overall poor performance for behaving 
+deterministically in the non-stationary environment.
+
 \begin{figure}[h]
       \centering
-      \includegraphics[width=\columnwidth]{figures/bcc-training.png}
+      \includegraphics[width=0.7\columnwidth]{figures/bcc-training.png}
       \caption{BC-Constrained policies rewards and entropy over time during
       training.}
       \label{fig:res_bcc_deepdive}
+\end{figure}
+
+\subsection{Assisted Explorations}
+
+AE policies exhibit relatively low entropy compared to the BCI \texttt{FEAT} 
+policy, indicating that they still perform randomly without learning 
+meaningful action distributions.
+
+\begin{figure}[h]
+      \centering
+      \includegraphics[width=0.7\columnwidth]{figures/ae-training.png}
+      \caption{Assisted Exploration policies rewards and entropy over time during
+      training.}
+      \label{fig:res_ae_deepdive}
 \end{figure}
 
 
