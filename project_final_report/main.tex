@@ -352,6 +352,7 @@ $\phi_0$ and $\theta_0$, i.e., $a, V = \mathcal{M}_0(\mathcal{F}_0(s;\phi_0);
 \theta_{\text{BC}}$ in this approach.
 
 \subsubsection{BC-Constrained PPO}
+\label{sec:bcc}
 This approach constrains the PPO policy to remain close to the pre-trained BC 
 policy by adding a KL-divergence term to the loss function:
 
@@ -488,7 +489,7 @@ feature extractor with $\phi_0 \leftarrow \phi_{\text{BC}}$ while keeping the ML
 policy network randomly initialized; \texttt{ALL} transfers both $\phi_0 \leftarrow 
 \phi_{\text{BC}}$ and $\theta_0 \leftarrow \theta_{\text{BC}}$.
 
-\begin{figure}[h]
+\begin{figure}[htbp]
       \centering
       \includegraphics[width=\columnwidth]{figures/cum_rewards_bci.png}
       \caption{Performance of BC-Initialized policies vs. baseline policies.}
@@ -505,7 +506,7 @@ policies perform worse than the baselines, particularly \texttt{ALL},
 where transferring all BC weights results in a nearly deterministic 
 policy that gets stuck in suboptimal states.
 
-\begin{figure}[h]
+\begin{figure}[htbp]
       \centering
       \includegraphics[width=\columnwidth]{figures/bci-training.png}
       \caption{BC-Initialized policies rewards and entropy over time during
@@ -529,6 +530,64 @@ maintaining action randomness, allowing PPO to explore bootstrapped
 states. With a relaxed clip range near the end of training, the 
 \texttt{FEAT} policy surpasses the BC policy.
 
+
+\subsection{BC-Constrained PPO (BCC)}
+
+In this paradigm, we extend \texttt{PPO} baseline policy and the BCI \texttt{FEAT}
+policy to include the KL divergence loss described in section \ref{sec:bcc}.
+BCC \texttt{KL-P} is comparable with \texttt{PPO}, while BCC \texttt{KL-F} is comparable
+with BCI \texttt{FEAT} policy.
+
+\begin{figure}[htbp]
+      \centering
+      \includegraphics[width=\columnwidth]{figures/cum_rewards_bcc.png}
+      \caption{Performance of BC-Constrained Policies Compared to Baseline 
+      and BC-Initialized Policies.}
+      \label{fig:res_bcc}
+\end{figure}
+Figure \ref{fig:res_bcc} shows that the KL-divergence loss degrades the 
+performance of both policies. While the intention is to use the BC policy 
+as a "teacher" for expected behaviors, the results indicate that the 
+reference policy is suboptimal and constraining on it hinders performance.
+
+Although the BC performance on game statistics alone seems acceptable, 
+observing its gameplay trajectory reveals that, despite acting stochastically, 
+the actions have low entropy and relatively follow the single human 
+demonstration. The root cause of the BC policy as a mediocre reference is 
+due to overfitting to actions in "good" human trajectory states. It struggles 
+with states not covered in the human demonstration trajectory, leading to 
+poor performance in a non-stationary environment.
+
+\begin{figure}[htbp]
+      \centering
+      \includegraphics[width=\columnwidth]{figures/gamevisual.png}
+      \caption{Comparison of State Coverage Between Human Demonstration 
+      and PPO Exploration.}
+      \label{fig:game}
+\end{figure}
+
+PPO policy explorations encounter many more unknown states than the 
+demonstration. Thus, the predicted action distributions may not be effective 
+in unseen states. Figure \ref{fig:game} illustrates the coverage issue of the 
+single human trajectory. It shows an early difficult scene where most PPO-based 
+policies fail. This part of the game has high pipes requiring continuous 
+actions dependent on prior actions, and Goombas moving non-stochastically 
+based on Mario's position. In the human trajectory, state-action pairs 
+mainly involve jumping over the first pipe, landing in the middle while 
+dodging Goombas, then performing a \texttt{RIGHT+JUMP} combination to reach the 
+tall pipe (right panel of Figure \ref{fig:game}). However, the PPO agent 
+often lands in states not present in the human trajectory, leading to 
+jumps onto enemies and ending the game (left panel of Figure \ref{fig:game}).
+Moreover, similar to observations for BCI policies, KL loss constrains the 
+entropy of the policies, leading to overall poor performance for behaving 
+deterministically in the non-stationary environment (see
+Appendix Figure \ref{fig:res_bcc_deepdive}).
+
+In summary, constraining PPO with a policy overfitted on limited human 
+trajectory data coverage degrades PPO performance, rather than aiding 
+it in staying near optimal states.
+
+
 \clearpage
 \bibliography{ref}
 \bibliographystyle{icml2018}
@@ -540,6 +599,7 @@ states. With a relaxed clip range near the end of training, the
 \setcounter{figure}{0}
 \setcounter{table}{0}
 \onecolumn
+
 \section{Appendix}
 \subsection{Custom Environment}
 \label{a1:custom_env}
@@ -560,6 +620,15 @@ meaningful_actions = [
 ]
 \end{verbatim}
 
+\subsection{BC-Constrained PPO}
+
+\begin{figure}[h]
+      \centering
+      \includegraphics[width=\columnwidth]{figures/bcc-training.png}
+      \caption{BC-Constrained policies rewards and entropy over time during
+      training.}
+      \label{fig:res_bcc_deepdive}
+\end{figure}
 
 
 \end{document}
